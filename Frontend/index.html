@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Cuestionarios - FHE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 60px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 42px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 50px;
+        }
+
+        .security-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 50px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 40px 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: block;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+
+        .card-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .card-description {
+            color: #666;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .info-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 30px;
+            margin-top: 40px;
+        }
+
+        .info-title {
+            color: #333;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            text-align: left;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .feature-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .feature-text {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e0e0e0;
+            color: #999;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 30px;
+            }
+
+            h1 {
+                font-size: 32px;
+            }
+
+            .cards-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Sistema de Cuestionarios</h1>
+        <p class="subtitle">Privacidad garantizada con Cifrado Homomórfico BFV</p>
+        
+        <div class="security-badge">
+            🛡️ Cifrado End-to-End con BFV
+        </div>
+
+        <div class="cards-container">
+            <a href="create.html" class="card">
+                <div class="card-icon">📝</div>
+                <h2 class="card-title">Crear Cuestionario</h2>
+                <p class="card-description">
+                    Diseña un nuevo cuestionario con preguntas personalizadas. 
+                    Las respuestas se cifrarán automáticamente en el navegador del usuario.
+                </p>
+            </a>
+
+            <a href="list.html" class="card">
+                <div class="card-icon">📊</div>
+                <h2 class="card-title">Ver Resultados</h2>
+                <p class="card-description">
+                    Consulta los resultados de cuestionarios finalizados con 
+                    gráficos interactivos y análisis detallado.
+                </p>
+            </a>
+        </div>
+
+        <div class="info-section">
+            <h3 class="info-title">
+                <span>🔒</span>
+                <span>¿Cómo Funciona el Cifrado Homomórfico?</span>
+            </h3>
+            
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">🌐</div>
+                    <div class="feature-text">
+                        <strong>Cifrado en Cliente:</strong> Las respuestas se cifran en el navegador antes de enviarse
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="feature-icon">🔐</div>
+                    <div class="feature-text">
+                        <strong>Privacidad Total:</strong> El servidor nunca ve respuestas individuales en texto plano
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="feature-icon">➕</div>
+                    <div class="feature-text">
+                        <strong>Suma Homomórfica:</strong> El servidor suma respuestas cifradas sin descifrarlas
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="feature-icon">🔓</div>
+                    <div class="feature-text">
+                        <strong>Descifrado Seguro:</strong> Solo el administrador con clave secreta ve resultados agregados
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Sistema desarrollado con <strong>BFV</strong> (Brakerski-Fan-Vercauteren) Homomorphic Encryption</p>
+            <p style="margin-top: 10px;">🔬 Para uso académico y demostrativo</p>
+        </div>
+    </div>
+</body>
+</html>
