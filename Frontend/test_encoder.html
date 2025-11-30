@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test BatchEncoder</title>
+    <script src="polynomial.js"></script>
+    <script src="number_theory.js"></script>
+    <script src="ntt.js"></script>
+    <script src="crypto_structures.js"></script>
+    <script src="batch_encoder.js"></script>
+</head>
+<body>
+    <h1>Test BatchEncoder</h1>
+    <pre id="output"></pre>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+            console.log(msg);
+        }
+
+        // Same parameters
+        const params = {
+            polyDegree: 8,
+            plainModulus: 17
+        };
+
+        const encoder = new BatchEncoder(params);
+
+        log('='.repeat(80));
+        log('JAVASCRIPT BATCH ENCODER TEST');
+        log('='.repeat(80));
+
+        const testCases = [
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0],
+        ];
+
+        testCases.forEach((values, i) => {
+            log(`\nTest ${i+1}: [${values}]`);
+            
+            const plaintext = encoder.encode(values);
+            const coeffs = plaintext.poly.coeffs;
+            log(`Encoded coeffs: [${coeffs}]`);
+            
+            const decoded = encoder.decode(plaintext);
+            log(`Decoded: [${decoded}]`);
+            
+            const match = values.every((v, idx) => v === decoded[idx]);
+            log(match ? '✓ Round-trip OK' : '✗ Round-trip FAILED');
+        });
+
+        log('\n' + '='.repeat(80));
+        log('EXPECTED (from Python):');
+        log('='.repeat(80));
+        log('\nFor [1,0,0,0,0,0,0,0]:');
+        log('  Should encode to: [15, 5, 13, 10, 9, 3, 1, 6]');
+        log('\nFor [0,1,0,0,0,0,0,0]:');
+        log('  Should encode to: [15, 10, 1, 12, 8, 11, 13, 3]');
+        log('\n' + '='.repeat(80));
+
+        // Test NTT directly
+        log('\nTesting NTT directly:');
+        const ntt = new NTTContext(8, 17);
+        log(`Root of unity: ${ntt.rootOfUnity}`);
+        log(`Roots of unity: [${ntt.rootsOfUnity}]`);
+        log(`Roots of unity inv: [${ntt.rootsOfUnityInv}]`);
+        log(`Scaled roots inv: [${ntt.scaledRouInv}]`);
+    </script>
+</body>
+</html>

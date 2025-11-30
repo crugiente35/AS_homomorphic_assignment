@@ -18,6 +18,22 @@
             padding: 20px;
         }
 
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #5568d3;
+            transform: translateX(-5px);
+        }
+
         .container {
             max-width: 800px;
             margin: 0 auto;
@@ -205,6 +221,7 @@
 </head>
 <body>
     <div class="container">
+        <a href="/index.html" class="back-link">← Volver al inicio</a>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h1 style="margin: 0;">📊 Cuestionario Cifrado</h1>
             <a id="results-link" href="#" style="display: none; background: #667eea; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600;">
@@ -323,15 +340,34 @@
 
         function displayDeadline(deadline) {
             const container = document.getElementById('deadline-container');
+            // Parse deadline as UTC
             const deadlineDate = new Date(deadline);
+            // Get current time in UTC
             const now = new Date();
+            const nowUTC = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
             
-            if (deadlineDate > now) {
-                const daysLeft = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
+            console.log('Comparando fechas (UTC):');
+            console.log('  Deadline:', deadlineDate.toISOString());
+            console.log('  Now UTC:', nowUTC.toISOString());
+            console.log('  Is expired?', deadlineDate <= nowUTC);
+            
+            if (deadlineDate > nowUTC) {
+                const timeLeft = deadlineDate - nowUTC;
+                const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24));
+                const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                
+                let timeLeftText;
+                if (hoursLeft < 24) {
+                    timeLeftText = `quedan ${hoursLeft}h ${minutesLeft}m`;
+                } else {
+                    timeLeftText = `quedan ${daysLeft} día${daysLeft !== 1 ? 's' : ''}`;
+                }
+                
                 container.innerHTML = `
                     <div class="deadline">
-                        ⏰ Fecha límite: ${deadlineDate.toLocaleDateString('es-ES')} 
-                        (quedan ${daysLeft} día${daysLeft !== 1 ? 's' : ''})
+                        ⏰ Fecha límite (UTC): ${deadlineDate.toISOString().slice(0, 16).replace('T', ' ')} 
+                        (${timeLeftText})
                     </div>
                 `;
             } else {
@@ -377,8 +413,15 @@
 
         async function submitQuestionnaire() {
             try {
-                // Check if deadline has passed
-                if (new Date(questionnaireData.deadline) < new Date()) {
+                // Check if deadline has passed (using UTC)
+                const deadlineDate = new Date(questionnaireData.deadline);
+                const now = new Date();
+                const nowUTC = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+                
+                if (deadlineDate < nowUTC) {
+                    console.log('Cuestionario expirado:');
+                    console.log('  Deadline:', deadlineDate.toISOString());
+                    console.log('  Now UTC:', nowUTC.toISOString());
                     showStatus('El cuestionario ha expirado', 'error');
                     return;
                 }
@@ -401,6 +444,18 @@
                 
                 showStatus('Codificando y cifrando tus respuestas...', 'info');
                 
+                console.log('\n='.repeat(40));
+                console.log('🔐 INICIANDO CIFRADO DE RESPUESTAS');
+                console.log('='.repeat(40));
+                console.log('Parámetros BFV:');
+                console.log('  poly_degree:', params.polyDegree);
+                console.log('  plain_modulus:', params.plainModulus);
+                console.log('  ciph_modulus:', params.ciphModulus);
+                console.log('\nRespuestas seleccionadas:');
+                answers.forEach((answer, i) => {
+                    console.log(`  Pregunta ${i+1}: Opción ${answer} (${questionnaireData.questions[i].options[answer]})`);
+                });
+                
                 // Encode and encrypt each answer
                 const encryptedAnswers = [];
                 
@@ -410,12 +465,23 @@
                     const vector = new Array(params.polyDegree).fill(0);
                     vector[answers[i]] = 1; // One-hot encoding
                     
+                    console.log(`\n--- Pregunta ${i+1} ---`);
+                    console.log('Vector one-hot:', JSON.stringify(vector));
+                    
                     // Encode and encrypt
                     const plaintext = encoder.encode(vector);
+                    console.log('Plaintext codificado (coeffs):', JSON.stringify(plaintext.poly.coeffs));
+                    
                     const ciphertext = encryptor.encrypt(plaintext);
+                    console.log('Ciphertext generado:');
+                    console.log('  c0.coeffs (primeros 4):', ciphertext.c0.coeffs.slice(0, 4));
+                    console.log('  c1.coeffs (primeros 4):', ciphertext.c1.coeffs.slice(0, 4));
                     
                     encryptedAnswers.push(ciphertext.toJSON());
                 }
+                
+                console.log('\n✓ Todas las respuestas cifradas correctamente');
+                console.log('='.repeat(40));
                 
                 showStatus('Enviando respuestas cifradas al servidor...', 'info');
                 

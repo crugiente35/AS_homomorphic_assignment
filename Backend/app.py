@@ -17,8 +17,13 @@ import json
 from models import init_db, get_session, Questionnaire, Response
 from bfv.bfv_evaluator import BFVEvaluator
 from bfv.bfv_parameters import BFVParameters
+from bfv.bfv_decryptor import BFVDecryptor
+from bfv.batch_encoder import BatchEncoder
 from util.ciphertext import Ciphertext
 from util.polynomial import Polynomial
+from util.secret_key import SecretKey
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend requests
@@ -58,6 +63,149 @@ def deserialize_ciphertext(data):
     # Support both camelCase and snake_case
     scaling_factor = data.get('scaling_factor') or data.get('scalingFactor')
     return Ciphertext(c0, c1, scaling_factor, data.get('modulus'))
+
+
+def decrypt_questionnaire(questionnaire):
+    """Decrypt accumulated responses for a questionnaire."""
+    try:
+        # Check if already decrypted
+        if questionnaire.is_decrypted:
+            print(f"Questionnaire {questionnaire.link} already decrypted")
+            return True
+        
+        # Check if has responses
+        if questionnaire.num_responses == 0:
+            print(f"Questionnaire {questionnaire.link} has no responses to decrypt")
+            return False
+        
+        print(f"Decrypting questionnaire {questionnaire.link}...")
+        
+        # Get parameters
+        params = BFVParameters(
+            poly_degree=questionnaire.poly_degree,
+            plain_modulus=questionnaire.plain_modulus,
+            ciph_modulus=int(questionnaire.ciph_modulus)
+        )
+        
+        # Reconstruct secret key
+        secret_key_data = questionnaire.get_secret_key()
+        secret_key_poly = Polynomial(secret_key_data['ring_degree'], secret_key_data['coeffs'])
+        secret_key = SecretKey(secret_key_poly)
+        
+        # Create decryptor and encoder
+        decryptor = BFVDecryptor(params, secret_key)
+        encoder = BatchEncoder(params)
+        
+        # Get accumulated responses
+        accumulated = questionnaire.get_accumulated_responses()
+        questions = questionnaire.get_questions()
+        
+        if not accumulated:
+            print(f"Questionnaire {questionnaire.link} has no accumulated responses")
+            return False
+        
+        # Decrypt and format results
+        results = []
+        print(f"\n{'='*40}")
+        print(f"🔓 DESCIFRANDO RESULTADOS")
+        print(f"{'='*40}")
+        
+        for i, (question, ciph_data) in enumerate(zip(questions, accumulated)):
+            print(f"\n--- Pregunta {i+1}: {question['text']} ---")
+            
+            # Deserialize and decrypt
+            ciphertext = deserialize_ciphertext(ciph_data)
+            print(f"Ciphertext: c0.ring_degree={ciphertext.c0.ring_degree}")
+            
+            plaintext = decryptor.decrypt(ciphertext)
+            print(f"Plaintext descifrado (coeffs): {plaintext.poly.coeffs}")
+            
+            decoded = encoder.decode(plaintext)
+            print(f"Valores decodificados: {decoded}")
+            
+            # Filter out N/A options
+            options_results = []
+            for j, option in enumerate(question['options']):
+                votes = int(decoded[j])
+                
+                # Skip N/A options completely
+                if option.strip().upper() == 'N/A':
+                    continue
+                
+                percentage = (votes / questionnaire.num_responses * 100) if questionnaire.num_responses > 0 else 0
+                options_results.append({
+                    'option': option,
+                    'votes': votes,
+                    'percentage': round(percentage, 2)
+                })
+            
+            results.append({
+                'question': question['text'],
+                'results': options_results
+            })
+            
+            print(f"Resultados finales pregunta {i+1}:")
+            for opt_result in options_results:
+                print(f"  {opt_result['option']}: {opt_result['votes']} votos ({opt_result['percentage']}%)")
+        
+        # Store decrypted results
+        questionnaire.set_decrypted_results(results)
+        
+        print(f"\n{'='*40}")
+        print(f"✓ Questionnaire {questionnaire.link} decrypted successfully")
+        print(f"{'='*40}\n")
+        return True
+        
+    except Exception as e:
+        print(f"✗ Error decrypting questionnaire {questionnaire.link}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def check_expired_questionnaires():
+    """Background task to check and decrypt expired questionnaires."""
+    print("\n🔍 Starting automatic decryption service...")
+    
+    while True:
+        try:
+            time.sleep(60)  # Check every 60 seconds
+            
+            session = get_session(DB_URL)
+            
+            try:
+                # Find expired questionnaires that haven't been decrypted yet
+                now = datetime.now(timezone.utc)
+                questionnaires = session.query(Questionnaire).filter(
+                    Questionnaire.is_decrypted == 0,
+                    Questionnaire.num_responses > 0
+                ).all()
+                
+                for q in questionnaires:
+                    # Make deadline timezone-aware if needed
+                    deadline = q.deadline
+                    if deadline.tzinfo is None:
+                        deadline = deadline.replace(tzinfo=timezone.utc)
+                    
+                    # Check if expired
+                    if now > deadline:
+                        print(f"\n⏰ Questionnaire {q.link} has expired. Decrypting...")
+                        
+                        if decrypt_questionnaire(q):
+                            session.commit()
+                            print(f"✓ Results saved to database for {q.link}")
+                        else:
+                            session.rollback()
+                
+            except Exception as e:
+                print(f"Error in expiration check: {e}")
+                session.rollback()
+            finally:
+                session.close()
+                
+        except Exception as e:
+            print(f"Error in background task: {e}")
+            time.sleep(60)
 
 
 @app.route('/')
@@ -168,26 +316,45 @@ def submit_answers():
         # Deserialize incoming ciphertexts
         new_ciphertexts = [deserialize_ciphertext(ciph_data) for ciph_data in encrypted_answers]
         
+        print(f"\n{'='*80}")
+        print(f"📥 RECIBIENDO RESPUESTA #{questionnaire.num_responses + 1} - Cuestionario: {questionnaire_id}")
+        print(f"{'='*80}")
+        print(f"Parámetros BFV:")
+        print(f"  poly_degree: {questionnaire.poly_degree}")
+        print(f"  plain_modulus: {questionnaire.plain_modulus}")
+        print(f"  ciph_modulus: {questionnaire.ciph_modulus}")
+        print(f"\nRespuestas cifradas recibidas: {len(new_ciphertexts)}")
+        for i, ciph in enumerate(new_ciphertexts):
+            print(f"  Pregunta {i+1}: c0.ring_degree={ciph.c0.ring_degree}, c1.ring_degree={ciph.c1.ring_degree}")
+            print(f"             c0.coeffs (primeros 4): {ciph.c0.coeffs[:4]}")
+        
         # Get existing accumulated responses
         accumulated = questionnaire.get_accumulated_responses()
         
         if accumulated is None:
+            print(f"\n✓ Primera respuesta - inicializando acumuladores")
             # First response - just store the ciphertexts
             accumulated = [serialize_ciphertext(ciph) for ciph in new_ciphertexts]
         else:
+            print(f"\n✓ Respuesta #{questionnaire.num_responses + 1} - acumulando homomórficamente")
             # Add new ciphertexts to accumulated ones
             accumulated_ciphertexts = [deserialize_ciphertext(ciph_data) for ciph_data in accumulated]
             
             # Homomorphic addition for each question
             for i in range(len(new_ciphertexts)):
+                print(f"  Sumando pregunta {i+1}...")
                 accumulated_ciphertexts[i] = evaluator.add(accumulated_ciphertexts[i], new_ciphertexts[i])
             
             # Serialize back
             accumulated = [serialize_ciphertext(ciph) for ciph in accumulated_ciphertexts]
+            print(f"✓ Acumulación completada")
         
         # Update questionnaire
         questionnaire.set_accumulated_responses(accumulated)
         questionnaire.num_responses += 1
+        
+        print(f"\n✓ Respuesta guardada. Total de respuestas: {questionnaire.num_responses}")
+        print(f"{'='*80}\n")
         
         # Create response record
         response = Response(questionnaire_id=questionnaire.id)
@@ -416,13 +583,9 @@ def create_questionnaire_api():
 @app.route('/api/questionnaire/<string:link>/results', methods=['GET'])
 def get_results(link):
     """
-    Decrypt and return results from a questionnaire.
-    Only works after deadline has passed.
+    Return decrypted results from a questionnaire.
+    Results are automatically decrypted when the deadline passes.
     """
-    from bfv.bfv_decryptor import BFVDecryptor
-    from bfv.batch_encoder import BatchEncoder
-    from util.secret_key import SecretKey
-    
     session = get_session(DB_URL)
     
     try:
@@ -451,57 +614,22 @@ def get_results(link):
                 'num_responses': 0
             }), 404
         
-        # Get parameters
-        params = BFVParameters(
-            poly_degree=questionnaire.poly_degree,
-            plain_modulus=questionnaire.plain_modulus,
-            ciph_modulus=int(questionnaire.ciph_modulus)
-        )
+        # Check if results have been decrypted
+        if not questionnaire.is_decrypted:
+            # Try to decrypt now if expired
+            if decrypt_questionnaire(questionnaire):
+                session.commit()
+            else:
+                return jsonify({
+                    'error': 'Results are being processed. Please try again in a moment.',
+                    'is_processing': True
+                }), 202
         
-        # Reconstruct secret key
-        secret_key_data = questionnaire.get_secret_key()
-        secret_key_poly = Polynomial(secret_key_data['ring_degree'], secret_key_data['coeffs'])
-        secret_key = SecretKey(secret_key_poly)
+        # Get pre-decrypted results
+        results = questionnaire.get_decrypted_results()
         
-        # Create decryptor and encoder
-        decryptor = BFVDecryptor(params, secret_key)
-        encoder = BatchEncoder(params)
-        
-        # Get accumulated responses
-        accumulated = questionnaire.get_accumulated_responses()
-        questions = questionnaire.get_questions()
-        
-        if not accumulated:
-            return jsonify({'error': 'No accumulated responses found'}), 404
-        
-        # Decrypt and format results
-        results = []
-        for i, (question, ciph_data) in enumerate(zip(questions, accumulated)):
-            # Deserialize and decrypt
-            ciphertext = deserialize_ciphertext(ciph_data)
-            plaintext = decryptor.decrypt(ciphertext)
-            decoded = encoder.decode(plaintext)
-            
-            # Filter out N/A options with 0 votes
-            options_results = []
-            for j, option in enumerate(question['options']):
-                votes = int(decoded[j])
-                
-                # Skip N/A options completely
-                if option.strip().upper() == 'N/A':
-                    continue
-                
-                percentage = (votes / questionnaire.num_responses * 100) if questionnaire.num_responses > 0 else 0
-                options_results.append({
-                    'option': option,
-                    'votes': votes,
-                    'percentage': round(percentage, 2)
-                })
-            
-            results.append({
-                'question': question['text'],
-                'results': options_results
-            })
+        if not results:
+            return jsonify({'error': 'Results not available yet'}), 404
         
         # Make deadline timezone-aware if it's naive
         deadline = questionnaire.deadline
@@ -535,7 +663,12 @@ if __name__ == '__main__':
     # Initialize database
     init_db(DB_URL)
     
+    # Start background thread for automatic decryption
+    decryption_thread = threading.Thread(target=check_expired_questionnaires, daemon=True)
+    decryption_thread.start()
+    print("✓ Automatic decryption service started")
+    
     print("Server ready!")
     print("Access the application at: http://localhost:5000")
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

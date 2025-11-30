@@ -19,6 +19,22 @@
             padding: 20px;
         }
 
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #5568d3;
+            transform: translateX(-5px);
+        }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -241,7 +257,10 @@
 </head>
 <body>
     <div class="container">
-        <a href="javascript:history.back()" class="back-link">← Volver</a>
+        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <a href="/index.html" class="back-link">← Inicio</a>
+            <a href="javascript:history.back()" class="back-link">← Volver</a>
+        </div>
         
         <h1>📊 Resultados del Cuestionario</h1>
         <p class="subtitle">Resultados descifrados con cifrado homomórfico</p>

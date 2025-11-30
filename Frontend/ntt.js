@@ -194,7 +194,7 @@ class NTTContext {
             for (let i = 0; i < n; i += len) {
                 for (let j = 0; j < len / 2; j++) {
                     const u = result[i + j];
-                    const v = (result[i + j + len / 2] * this.scaledRouInv[j * step]) % this.coeffModulus;
+                    const v = (result[i + j + len / 2] * this.rootsOfUnityInv[j * step]) % this.coeffModulus;
                     result[i + j] = (u + v) % this.coeffModulus;
                     result[i + j + len / 2] = ((u - v) % this.coeffModulus + this.coeffModulus) % this.coeffModulus;
                 }
@@ -210,7 +210,11 @@ class NTTContext {
      * @returns {number[]} Transformed values
      */
     fttFwd(values) {
-        return this.nttFwd(values);
+        // FTT forward: multiply by roots first, then NTT
+        const fttInput = values.map((val, i) => 
+            (val * this.rootsOfUnity[i]) % this.coeffModulus
+        );
+        return this.nttFwd(fttInput);
     }
 
     /**
@@ -219,7 +223,17 @@ class NTTContext {
      * @returns {number[]} Original values
      */
     fttInv(values) {
-        return this.nttInv(values);
+        // First apply inverse NTT with inverse roots
+        const toScaleDown = this.nttInv(values);
+        
+        // Then multiply by inverse roots and scale factor (1/degree)
+        const degreeInv = this._modInverse(this.degree, this.coeffModulus);
+        const result = toScaleDown.map((val, i) => {
+            const scaled = (val * this.rootsOfUnityInv[i]) % this.coeffModulus;
+            return (scaled * degreeInv) % this.coeffModulus;
+        });
+        
+        return result;
     }
 }
 

@@ -67,7 +67,7 @@ def create_questionnaire(questions, deadline_days=7, link=None):
         key_generator = BFVKeyGenerator(params)
         public_key = key_generator.public_key
         secret_key = key_generator.secret_key
-        
+        print("Secret key generated", secret_key)
         # Serialize keys
         public_key_json = {
             'p0': serialize_polynomial(public_key.p0),

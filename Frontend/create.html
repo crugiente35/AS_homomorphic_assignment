@@ -307,9 +307,12 @@
                 <h2>⚙️ Configuración General</h2>
                 
                 <div class="form-group">
-                    <label class="form-label">Fecha y hora de finalización</label>
+                    <label class="form-label">Fecha y hora de finalización (UTC)</label>
                     <input type="datetime-local" class="form-input" id="deadline-datetime" required>
-                    <div class="help-text">Fecha y hora exacta de finalización del cuestionario</div>
+                    <div class="help-text">
+                        Fecha y hora exacta de finalización del cuestionario en <strong>hora UTC</strong>.
+                        <span id="current-utc-time"></span>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -545,6 +548,36 @@
                 }, 5000);
             }
         }
+
+        // Set minimum datetime to current UTC time on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const deadlineInput = document.getElementById('deadline-datetime');
+            const utcTimeDisplay = document.getElementById('current-utc-time');
+            
+            function updateUTCTime() {
+                const now = new Date();
+                const year = now.getUTCFullYear();
+                const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+                const day = String(now.getUTCDate()).padStart(2, '0');
+                const hours = String(now.getUTCHours()).padStart(2, '0');
+                const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+                const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+                
+                // Format: YYYY-MM-DDTHH:MM
+                const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+                deadlineInput.min = minDateTime;
+                
+                // Display current UTC time
+                const utcString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+                utcTimeDisplay.textContent = `Hora actual UTC: ${utcString}`;
+                
+                console.log('✓ Fecha mínima actualizada (UTC):', minDateTime);
+            }
+            
+            // Update immediately and every second
+            updateUTCTime();
+            setInterval(updateUTCTime, 1000);
+        });
     </script>
 </body>
 </html>

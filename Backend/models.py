@@ -42,6 +42,10 @@ class Questionnaire(Base):
     # This is a list of lists: one list per question, each containing accumulated ciphertext
     accumulated_responses_json = Column(Text, nullable=True)  # JSON string
     
+    # Decrypted results (stored after deadline)
+    decrypted_results_json = Column(Text, nullable=True)  # JSON string with decrypted results
+    is_decrypted = Column(Integer, default=0)  # Boolean flag: 0=not decrypted, 1=decrypted
+    
     # Metadata
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     num_responses = Column(Integer, default=0)
@@ -90,6 +94,17 @@ class Questionnaire(Base):
             'plain_modulus': self.plain_modulus,
             'ciph_modulus': int(self.ciph_modulus)
         }
+    
+    def get_decrypted_results(self):
+        """Parse and return decrypted results."""
+        if self.decrypted_results_json:
+            return json.loads(self.decrypted_results_json)
+        return None
+    
+    def set_decrypted_results(self, results):
+        """Set decrypted results from Python object."""
+        self.decrypted_results_json = json.dumps(results)
+        self.is_decrypted = 1
 
 
 class Response(Base):
