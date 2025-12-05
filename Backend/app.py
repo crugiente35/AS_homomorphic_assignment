@@ -211,13 +211,16 @@ def check_expired_questionnaires():
 @app.route('/')
 def index():
     """Serve the main page."""
-    return send_from_directory('../Frontend', 'index.html')
+    return send_from_directory('../Frontend/dist', 'index.html')
 
 
 @app.route('/<path:filename>')
 def serve_static(filename):
     """Serve static files from Frontend directory."""
-    return send_from_directory('../Frontend', filename)
+    try:
+        return send_from_directory('../Frontend/dist', filename)
+    except:
+        return send_from_directory('../Frontend/dist', 'index.html')
 
 
 @app.route('/api/questionnaire/<string:link>', methods=['GET'])
@@ -367,7 +370,7 @@ def submit_answers():
             'message': 'Answers submitted successfully',
             'total_responses': questionnaire.num_responses
         }), 200
-        
+
     except Exception as e:
         session.rollback()
         print(f"Error submitting answers: {e}")
@@ -584,7 +587,6 @@ def create_questionnaire_api():
 def get_results(link):
     """
     Return decrypted results from a questionnaire.
-    Results are automatically decrypted when the deadline passes.
     """
     session = get_session(DB_URL)
     
@@ -599,14 +601,6 @@ def get_results(link):
         if deadline.tzinfo is None:
             deadline = deadline.replace(tzinfo=timezone.utc)
         
-        # Check if questionnaire is still active (not expired)
-        if datetime.now(timezone.utc) <= deadline:
-            return jsonify({
-                'error': 'Questionnaire is still active. Results will be available after the deadline.',
-                'deadline': deadline.isoformat(),
-                'is_active': True
-            }), 403
-        
         # Check if has responses
         if questionnaire.num_responses == 0:
             return jsonify({
@@ -614,28 +608,21 @@ def get_results(link):
                 'num_responses': 0
             }), 404
         
-        # Check if results have been decrypted
-        if not questionnaire.is_decrypted:
-            # Try to decrypt now if expired
-            if decrypt_questionnaire(questionnaire):
-                session.commit()
-            else:
-                return jsonify({
-                    'error': 'Results are being processed. Please try again in a moment.',
-                    'is_processing': True
-                }), 202
-        
-        # Get pre-decrypted results
+        # Always re-decrypt to get fresh results
+        questionnaire.is_decrypted = False
+        if decrypt_questionnaire(questionnaire):
+            session.commit()
+        else:
+            return jsonify({
+                'error': 'Failed to decrypt results',
+            }), 500
+
+        # Get decrypted results
         results = questionnaire.get_decrypted_results()
         
         if not results:
-            return jsonify({'error': 'Results not available yet'}), 404
-        
-        # Make deadline timezone-aware if it's naive
-        deadline = questionnaire.deadline
-        if deadline.tzinfo is None:
-            deadline = deadline.replace(tzinfo=timezone.utc)
-        
+            return jsonify({'error': 'Results not available'}), 404
+
         return jsonify({
             'link': questionnaire.link,
             'created_at': questionnaire.created_at.isoformat(),

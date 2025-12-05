@@ -78,3 +78,7 @@ MANIFEST
 *.tmp
 *.bak
 *.swp
+
+Frontend/node_modules/
+Frontend/build/
+Frontend/dist/
