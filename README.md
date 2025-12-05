@@ -40,6 +40,7 @@ AS_assignment/
 
 ```powershell
 cd Backend
+pip install git+https://github.com/sarojaerabelli/py-fhe.git
 pip install -r requirements.txt
 ```
 
