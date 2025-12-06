@@ -13,8 +13,9 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from datetime import datetime, timezone
 import json
+import ssl
 
-from models import init_db, get_session, Questionnaire, Response
+from models import init_db, get_session, Questionnaire, Response, SubmissionRecord
 from bfv.bfv_evaluator import BFVEvaluator
 from bfv.bfv_parameters import BFVParameters
 from bfv.bfv_decryptor import BFVDecryptor
@@ -270,17 +271,18 @@ def get_questionnaire(link):
         session.close()
 
 
+@app.route('/api/cert-info', methods=['GET'])
+def get_cert_info():
+    peercert = request.environ.get('peercert')
+    fingerprint = request.environ.get('peercert_fingerprint')
+    if not peercert or not fingerprint:
+        return jsonify({'error': 'No client certificate'}), 401
+    cn = dict(x[0] for x in peercert.get('subject', ()))['commonName']
+    return jsonify({'fingerprint': fingerprint, 'cn': cn}), 200
+
+
 @app.route('/api/submit-answers', methods=['POST'])
 def submit_answers():
-    """
-    Receive encrypted answers and accumulate them.
-    
-    Expected JSON:
-    {
-        'questionnaire_id': 'link-or-id',
-        'encrypted_answers': [ciphertext1, ciphertext2, ...]
-    }
-    """
     session = get_session(DB_URL)
     
     try:
@@ -288,18 +290,20 @@ def submit_answers():
         
         questionnaire_id = data.get('questionnaire_id')
         encrypted_answers = data.get('encrypted_answers')
-        
+
+        cert_fingerprint = request.environ.get('peercert_fingerprint')
+        if not cert_fingerprint:
+            return jsonify({'error': 'Client certificate required'}), 401
+
+
         if not questionnaire_id or not encrypted_answers:
             return jsonify({'error': 'Missing required fields'}), 400
         
-        # Find questionnaire
         questionnaire = session.query(Questionnaire).filter_by(link=questionnaire_id).first()
         
         if not questionnaire:
             return jsonify({'error': 'Questionnaire not found'}), 404
         
-        # Check if expired
-        # Make deadline timezone-aware if it's naive
         deadline = questionnaire.deadline
         if deadline.tzinfo is None:
             deadline = deadline.replace(tzinfo=timezone.utc)
@@ -307,7 +311,13 @@ def submit_answers():
         if datetime.now(timezone.utc) > deadline:
             return jsonify({'error': 'Questionnaire has expired'}), 410
         
-        # Get BFV parameters
+        existing = session.query(SubmissionRecord).filter_by(
+            questionnaire_id=questionnaire.id,
+            cert_fingerprint=cert_fingerprint
+        ).first()
+        if existing:
+            return jsonify({'error': 'Already submitted'}), 409
+
         params = BFVParameters(
             poly_degree=questionnaire.poly_degree,
             plain_modulus=questionnaire.plain_modulus,
@@ -315,54 +325,30 @@ def submit_answers():
         )
         
         evaluator = BFVEvaluator(params)
-        
-        # Deserialize incoming ciphertexts
         new_ciphertexts = [deserialize_ciphertext(ciph_data) for ciph_data in encrypted_answers]
         
-        print(f"\n{'='*80}")
-        print(f"📥 RECIBIENDO RESPUESTA #{questionnaire.num_responses + 1} - Cuestionario: {questionnaire_id}")
-        print(f"{'='*80}")
-        print(f"Parámetros BFV:")
-        print(f"  poly_degree: {questionnaire.poly_degree}")
-        print(f"  plain_modulus: {questionnaire.plain_modulus}")
-        print(f"  ciph_modulus: {questionnaire.ciph_modulus}")
-        print(f"\nRespuestas cifradas recibidas: {len(new_ciphertexts)}")
-        for i, ciph in enumerate(new_ciphertexts):
-            print(f"  Pregunta {i+1}: c0.ring_degree={ciph.c0.ring_degree}, c1.ring_degree={ciph.c1.ring_degree}")
-            print(f"             c0.coeffs (primeros 4): {ciph.c0.coeffs[:4]}")
-        
-        # Get existing accumulated responses
         accumulated = questionnaire.get_accumulated_responses()
         
         if accumulated is None:
-            print(f"\n✓ Primera respuesta - inicializando acumuladores")
-            # First response - just store the ciphertexts
             accumulated = [serialize_ciphertext(ciph) for ciph in new_ciphertexts]
         else:
-            print(f"\n✓ Respuesta #{questionnaire.num_responses + 1} - acumulando homomórficamente")
-            # Add new ciphertexts to accumulated ones
             accumulated_ciphertexts = [deserialize_ciphertext(ciph_data) for ciph_data in accumulated]
-            
-            # Homomorphic addition for each question
             for i in range(len(new_ciphertexts)):
-                print(f"  Sumando pregunta {i+1}...")
                 accumulated_ciphertexts[i] = evaluator.add(accumulated_ciphertexts[i], new_ciphertexts[i])
-            
-            # Serialize back
             accumulated = [serialize_ciphertext(ciph) for ciph in accumulated_ciphertexts]
-            print(f"✓ Acumulación completada")
-        
-        # Update questionnaire
+
         questionnaire.set_accumulated_responses(accumulated)
         questionnaire.num_responses += 1
         
-        print(f"\n✓ Respuesta guardada. Total de respuestas: {questionnaire.num_responses}")
-        print(f"{'='*80}\n")
-        
-        # Create response record
         response = Response(questionnaire_id=questionnaire.id)
         session.add(response)
         
+        submission_record = SubmissionRecord(
+            questionnaire_id=questionnaire.id,
+            cert_fingerprint=cert_fingerprint
+        )
+        session.add(submission_record)
+
         session.commit()
         
         return jsonify({
@@ -373,9 +359,6 @@ def submit_answers():
 
     except Exception as e:
         session.rollback()
-        print(f"Error submitting answers: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     
     finally:
@@ -642,20 +625,50 @@ def get_results(link):
         session.close()
 
 
+def get_client_cert_fingerprint():
+    cert_pem = request.environ.get('SSL_CLIENT_CERT', '')
+    if not cert_pem:
+        return None
+    import hashlib
+    from OpenSSL import crypto
+    cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_pem)
+    fingerprint = cert.digest('sha256').decode().replace(':', '').lower()
+    return fingerprint
+
+
 if __name__ == '__main__':
-    print("Starting Flask server...")
+    print("Starting Flask server with mTLS...")
     print("Database URL:", DB_URL)
-    print("Initializing database...")
-    
-    # Initialize database
+
     init_db(DB_URL)
     
-    # Start background thread for automatic decryption
     decryption_thread = threading.Thread(target=check_expired_questionnaires, daemon=True)
     decryption_thread.start()
     print("✓ Automatic decryption service started")
     
+    from werkzeug.serving import run_simple
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.load_cert_chain('certs/server.crt', 'certs/server.key')
+    context.load_verify_locations('certs/ca.crt')
+
+    class PeerCertWSGIRequestHandler:
+        def __init__(self, app):
+            self.app = app
+        def __call__(self, environ, start_response):
+            sock = environ.get('werkzeug.socket') or environ.get('gunicorn.socket')
+            if sock:
+                cert = sock.getpeercert(binary_form=True)
+                if cert:
+                    import hashlib
+                    environ['peercert_fingerprint'] = hashlib.sha256(cert).hexdigest()
+                    environ['peercert'] = sock.getpeercert()
+            return self.app(environ, start_response)
+
+    wrapped_app = PeerCertWSGIRequestHandler(app)
+
     print("Server ready!")
-    print("Access the application at: http://localhost:5000")
-    
-    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+    print("Access the application at: https://localhost:5000")
+
+    run_simple('0.0.0.0', 5000, wrapped_app, ssl_context=context, use_reloader=False, use_debugger=True, threaded=True)

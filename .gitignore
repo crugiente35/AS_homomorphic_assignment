@@ -82,3 +82,8 @@ MANIFEST
 Frontend/node_modules/
 Frontend/build/
 Frontend/dist/
+*.key
+*.crt
+*.srl
+*.csr
+*.p12

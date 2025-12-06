@@ -7,9 +7,12 @@ export default function Questionnaire() {
   const [data, setData] = useState(null)
   const [answers, setAnswers] = useState({})
   const [submitted, setSubmitted] = useState(false)
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false)
+  const [certInfo, setCertInfo] = useState(null)
 
   useEffect(() => {
     fetch(`/api/questionnaire/${id}`).then(r => r.json()).then(setData)
+    fetch('/api/cert-info').then(r => r.json()).then(setCertInfo)
   }, [id])
 
   if (!data) return null
@@ -28,11 +31,17 @@ export default function Questionnaire() {
       return encryptor.encrypt(encoder.encode(vec)).toJSON()
     })
 
-    await fetch('/api/submit-answers', {
+    const res = await fetch('/api/submit-answers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ questionnaire_id: id, encrypted_answers: encrypted })
     })
+
+    if (res.status === 409) {
+      setAlreadySubmitted(true)
+      return
+    }
+
     setSubmitted(true)
   }
 
@@ -40,7 +49,13 @@ export default function Questionnaire() {
     <div>
       <Link to="/">← Home</Link>
       <h1>Questionnaire</h1>
+      {certInfo && (
+        <p style={{ fontFamily: 'monospace', fontSize: '12px', color: '#666' }}>
+          🔑 Certificate: {certInfo.cn} ({certInfo.fingerprint.slice(0, 16)}...)
+        </p>
+      )}
       {isExpired && <p>⚠️ Expired</p>}
+      {alreadySubmitted && <p>⚠️ You have already submitted</p>}
 
       {data.questions.map((q, qi) => (
         <div key={qi} className="question-box">
@@ -53,7 +68,7 @@ export default function Questionnaire() {
                 name={`q${qi}`}
                 checked={answers[qi] === oi}
                 onChange={() => setAnswers({ ...answers, [qi]: oi })}
-                disabled={submitted || isExpired}
+                disabled={submitted || isExpired || alreadySubmitted}
               />
               <label htmlFor={`q${qi}-o${oi}`}>{opt}</label>
             </div>
@@ -61,8 +76,8 @@ export default function Questionnaire() {
         </div>
       ))}
 
-      <button onClick={submit} disabled={submitted || isExpired}>
-        {submitted ? '✓ Submitted' : 'Submit'}
+      <button onClick={submit} disabled={submitted || isExpired || alreadySubmitted}>
+        {submitted ? '✓ Submitted' : alreadySubmitted ? 'Already Submitted' : 'Submit'}
       </button>
     </div>
   )

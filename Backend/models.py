@@ -123,6 +123,22 @@ class Response(Base):
         return f"<Response(id={self.id}, questionnaire_id={self.questionnaire_id}, submitted_at='{self.submitted_at}')>"
 
 
+class SubmissionRecord(Base):
+    """
+    Table to track which certificate fingerprints have answered which questionnaire.
+    """
+    __tablename__ = 'submission_records'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    questionnaire_id = Column(Integer, nullable=False, index=True)
+    cert_fingerprint = Column(String(64), nullable=False)
+    submitted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        {'sqlite_autoincrement': True}
+    )
+
+
 # Database initialization
 def init_db(db_url='sqlite:///questionnaires.db'):
     """
