@@ -17,7 +17,13 @@ export default function Questionnaire() {
 
   if (!data) return null
 
-  const isExpired = new Date(data.deadline) <= new Date()
+  // Backend sends UTC time, compare with current UTC time
+  const deadlineUTC = new Date(data.deadline)
+  const nowUTC = new Date()
+  const isExpired = deadlineUTC <= nowUTC
+  
+  // Format deadline for display in local time
+  const deadlineLocal = deadlineUTC.toLocaleString()
 
   const submit = async () => {
     const params = { polyDegree: data.params.poly_degree, plainModulus: data.params.plain_modulus, ciphModulus: data.params.ciph_modulus }
@@ -54,8 +60,11 @@ export default function Questionnaire() {
           🔑 Certificate: {certInfo.cn} ({certInfo.fingerprint.slice(0, 16)}...)
         </p>
       )}
-      {isExpired && <p>⚠️ Expired</p>}
-      {alreadySubmitted && <p>⚠️ You have already submitted</p>}
+      <p style={{ fontSize: '14px', color: '#666' }}>
+        ⏰ Deadline: {deadlineLocal} (your local time)
+      </p>
+      {isExpired && <p style={{ color: 'red' }}>⚠️ Expired</p>}
+      {alreadySubmitted && <p style={{ color: 'orange' }}>⚠️ You have already submitted</p>}
 
       {data.questions.map((q, qi) => (
         <div key={qi} className="question-box">
