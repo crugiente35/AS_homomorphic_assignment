@@ -45,7 +45,8 @@ class Questionnaire(Base):
     # Decrypted results (stored after deadline)
     decrypted_results_json = Column(Text, nullable=True)  # JSON string with decrypted results
     is_decrypted = Column(Integer, default=0)  # Boolean flag: 0=not decrypted, 1=decrypted
-    
+    hide_results_until_deadline = Column(Integer, default=1)  # 1=true, 0=false
+
     # Metadata
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     num_responses = Column(Integer, default=0)
@@ -128,12 +129,12 @@ class SubmissionRecord(Base):
     Table to track which certificate fingerprints have answered which questionnaire.
     """
     __tablename__ = 'submission_records'
-
+    
     id = Column(Integer, primary_key=True, autoincrement=True)
     questionnaire_id = Column(Integer, nullable=False, index=True)
     cert_fingerprint = Column(String(64), nullable=False)
     submitted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
+    
     __table_args__ = (
         {'sqlite_autoincrement': True}
     )

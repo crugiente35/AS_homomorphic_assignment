@@ -466,7 +466,8 @@ def create_questionnaire_api():
         questions = data.get('questions')
         deadline_datetime = data.get('deadline_datetime')
         custom_link = data.get('link')
-        
+        hide_results_until_deadline = data.get('hide_results_until_deadline', True)
+
         if not questions or len(questions) == 0:
             return jsonify({'error': 'No questions provided'}), 400
         
@@ -542,7 +543,8 @@ def create_questionnaire_api():
             public_key_json=json.dumps(public_key_json),
             secret_key_json=json.dumps(secret_key_json),
             accumulated_responses_json=None,
-            num_responses=0
+            num_responses=0,
+            hide_results_until_deadline=hide_results_until_deadline
         )
         
         session.add(questionnaire)
@@ -579,19 +581,24 @@ def get_results(link):
         if not questionnaire:
             return jsonify({'error': 'Questionnaire not found'}), 404
         
-        # Make deadline timezone-aware if it's naive
         deadline = questionnaire.deadline
         if deadline.tzinfo is None:
             deadline = deadline.replace(tzinfo=timezone.utc)
         
-        # Check if has responses
+        is_expired = datetime.now(timezone.utc) > deadline
+
+        if questionnaire.hide_results_until_deadline and not is_expired:
+            return jsonify({
+                'error': 'Results are hidden until the deadline',
+                'deadline': deadline.isoformat()
+            }), 403
+
         if questionnaire.num_responses == 0:
             return jsonify({
                 'error': 'No responses yet',
                 'num_responses': 0
             }), 404
         
-        # Always re-decrypt to get fresh results
         questionnaire.is_decrypted = False
         if decrypt_questionnaire(questionnaire):
             session.commit()
@@ -600,7 +607,6 @@ def get_results(link):
                 'error': 'Failed to decrypt results',
             }), 500
 
-        # Get decrypted results
         results = questionnaire.get_decrypted_results()
         
         if not results:
@@ -611,7 +617,7 @@ def get_results(link):
             'created_at': questionnaire.created_at.isoformat(),
             'deadline': deadline.isoformat(),
             'num_responses': questionnaire.num_responses,
-            'is_expired': datetime.now(timezone.utc) > deadline,
+            'is_expired': is_expired,
             'results': results
         }), 200
         

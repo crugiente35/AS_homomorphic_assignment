@@ -5,6 +5,7 @@ export default function Create() {
   const [questions, setQuestions] = useState([{ id: 1, text: '', options: ['', '', '', '', 'N/A', 'N/A', 'N/A', 'N/A'] }])
   const [deadline, setDeadline] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16))
   const [customLink, setCustomLink] = useState('')
+  const [hideResultsUntilDeadline, setHideResultsUntilDeadline] = useState(true)
   const [result, setResult] = useState(null)
 
   const addQuestion = () => setQuestions([...questions, { id: Date.now(), text: '', options: ['', '', '', '', 'N/A', 'N/A', 'N/A', 'N/A'] }])
@@ -28,7 +29,8 @@ export default function Create() {
       body: JSON.stringify({
         questions: questions.map(q => ({ text: q.text, options: q.options })),
         deadline_datetime: deadline,
-        link: customLink || null
+        link: customLink || null,
+        hide_results_until_deadline: hideResultsUntilDeadline
       })
     })
     setResult(await res.json())
@@ -59,6 +61,12 @@ export default function Create() {
         <div>
           <label>Custom link: </label>
           <input value={customLink} onChange={e => setCustomLink(e.target.value)} placeholder="optional" />
+        </div>
+        <div>
+          <label>
+            <input type="checkbox" checked={hideResultsUntilDeadline} onChange={e => setHideResultsUntilDeadline(e.target.checked)} />
+            Hide results until deadline
+          </label>
         </div>
         <hr />
         {questions.map((q, qi) => (
