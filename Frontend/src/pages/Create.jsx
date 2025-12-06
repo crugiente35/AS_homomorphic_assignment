@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom'
 
 export default function Create() {
   const [questions, setQuestions] = useState([{ id: 1, text: '', options: ['', '', '', '', 'N/A', 'N/A', 'N/A', 'N/A'] }])
-  const [deadline, setDeadline] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16))
+  // Initialize with local time (7 days from now)
+  const defaultDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const localDateStr = new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  const [deadline, setDeadline] = useState(localDateStr)
   const [customLink, setCustomLink] = useState('')
   const [hideResultsUntilDeadline, setHideResultsUntilDeadline] = useState(true)
   const [result, setResult] = useState(null)
@@ -23,12 +26,16 @@ export default function Create() {
 
   const submit = async (e) => {
     e.preventDefault()
+    // Convert local time to UTC for backend
+    const localDate = new Date(deadline)
+    const utcDateStr = localDate.toISOString()
+
     const res = await fetch('/api/create-questionnaire', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         questions: questions.map(q => ({ text: q.text, options: q.options })),
-        deadline_datetime: deadline,
+        deadline_datetime: utcDateStr,
         link: customLink || null,
         hide_results_until_deadline: hideResultsUntilDeadline
       })
@@ -55,7 +62,7 @@ export default function Create() {
       <h1>Create Questionnaire</h1>
       <form onSubmit={submit}>
         <div>
-          <label>Deadline (UTC): </label>
+          <label>Deadline (Local Time): </label>
           <input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} required />
         </div>
         <div>
@@ -63,10 +70,8 @@ export default function Create() {
           <input value={customLink} onChange={e => setCustomLink(e.target.value)} placeholder="optional" />
         </div>
         <div>
-          <label>
-            <input type="checkbox" checked={hideResultsUntilDeadline} onChange={e => setHideResultsUntilDeadline(e.target.checked)} />
-            Hide results until deadline
-          </label>
+          <label>Hide results until deadline</label>
+          <input type="checkbox" checked={hideResultsUntilDeadline} onChange={e => setHideResultsUntilDeadline(e.target.checked)} />
         </div>
         <hr />
         {questions.map((q, qi) => (

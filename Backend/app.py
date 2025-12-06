@@ -246,16 +246,15 @@ def get_questionnaire(link):
         if deadline.tzinfo is None:
             deadline = deadline.replace(tzinfo=timezone.utc)
         
-        if datetime.now(timezone.utc) > deadline:
-            return jsonify({
-                'error': 'Questionnaire has expired',
-                'deadline': questionnaire.deadline.isoformat()
-            }), 410
-        
+        # Return deadline in ISO format with Z to indicate UTC
+        deadline_iso = deadline.isoformat()
+        if not deadline_iso.endswith('Z') and not '+' in deadline_iso:
+            deadline_iso += 'Z'
+
         response_data = {
             'id': questionnaire.id,
             'link': questionnaire.link,
-            'deadline': questionnaire.deadline.isoformat(),
+            'deadline': deadline_iso,
             'questions': questionnaire.get_questions(),
             'public_key': questionnaire.get_public_key(),
             'params': questionnaire.get_params()
