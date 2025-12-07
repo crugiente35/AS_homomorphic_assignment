@@ -1,6 +1,10 @@
+import sys
+import os
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from eralchemy2 import render_er
 from models import Base, Questionnaire, SubmissionRecord
-import os
 
 def generate_diagram():
     print("Generando diagrama de base de datos...")
@@ -19,7 +23,8 @@ def generate_diagram():
     try:
         # Opción B: Generar desde el archivo de base de datos existente
         # Esto usa lo que realmente está guardado en el archivo .db
-        db_path = 'sqlite:///questionnaires.db'
+        db_file = os.path.join(os.path.dirname(__file__), '..', 'questionnaires.db')
+        db_path = f'sqlite:///{db_file}'
         render_er(db_path, 'schema_from_db.png')
         print("✅ Diagrama generado: schema_from_db.png")
         

@@ -3,7 +3,8 @@ Debug script to test decryption manually
 """
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'py-fhe'))
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import sqlite3
 import json
@@ -14,23 +15,55 @@ from util.ciphertext import Ciphertext
 from util.polynomial import Polynomial
 from util.secret_key import SecretKey
 
-# Connect to database
-conn = sqlite3.connect('questionnaires.db')
+# Connect to database (in parent directory)
+db_path = os.path.join(os.path.dirname(__file__), '..', 'questionnaires.db')
+conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
-# Get questionnaire
+# List available questionnaires
+cursor.execute("""
+    SELECT link, num_responses, deadline
+    FROM questionnaires
+    ORDER BY created_at DESC
+""")
+
+questionnaires = cursor.fetchall()
+
+if not questionnaires:
+    print("No questionnaires found in database!")
+    conn.close()
+    sys.exit(1)
+
+print("Available questionnaires:")
+for i, (link, num_resp, deadline) in enumerate(questionnaires):
+    print(f"  {i+1}. {link} ({num_resp} responses, deadline: {deadline})")
+
+# Use the first questionnaire with responses, or just the first one
+selected_link = None
+for link, num_resp, deadline in questionnaires:
+    if num_resp > 0:
+        selected_link = link
+        break
+
+if not selected_link:
+    selected_link = questionnaires[0][0]
+    print(f"\nNo questionnaires with responses found. Using first one: {selected_link}")
+else:
+    print(f"\nUsing questionnaire: {selected_link}")
+
+# Get questionnaire details
 cursor.execute("""
     SELECT poly_degree, plain_modulus, ciph_modulus,
            secret_key_json, accumulated_responses_json, num_responses
     FROM questionnaires
-    WHERE link = 'AnUhvduTLLMXgrfKo9yQLg'
-""")
+    WHERE link = ?
+""", (selected_link,))
 
 result = cursor.fetchone()
 conn.close()
 
 if not result:
-    print("Questionnaire not found!")
+    print("Error: Could not retrieve questionnaire details!")
     sys.exit(1)
 
 poly_degree, plain_modulus, ciph_modulus, secret_key_json, accumulated_json, num_responses = result
@@ -110,25 +143,11 @@ for i, ciph_data in enumerate(accumulated):
     
     print(f"Decoded values: {decoded}")
     
-    # Expected values
-    if i == 0:
-        expected = [1, 1, 0, 1, 0, 0, 0, 0]
-    else:
-        expected = [0, 2, 0, 1, 0, 0, 0, 0]
-    
-    print(f"Expected values: {expected}")
-    
-    if decoded == expected:
-        print("✓ MATCH!")
-    else:
-        print("✗ MISMATCH!")
-        print(f"  Differences:")
-        for j in range(len(expected)):
-            if j < len(decoded):
-                if decoded[j] != expected[j]:
-                    print(f"    Position {j}: expected {expected[j]}, got {decoded[j]}")
-            else:
-                print(f"    Position {j}: expected {expected[j]}, got NOTHING (decoded too short)")
+    # Show results
+    print(f"\nResults for question {i+1}:")
+    for j, votes in enumerate(decoded):
+        if votes > 0:
+            print(f"  Option {j}: {votes} votes")
 
 print(f"\n{'='*80}")
 print(f"DECRYPTION TEST COMPLETE")

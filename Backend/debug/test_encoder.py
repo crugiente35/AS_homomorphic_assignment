@@ -3,7 +3,8 @@ Test to compare Python BatchEncoder with JavaScript output
 """
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'py-fhe'))
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from bfv.batch_encoder import BatchEncoder
 from bfv.bfv_parameters import BFVParameters

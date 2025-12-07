@@ -7,7 +7,8 @@ Test to simulate the full questionnaire flow:
 """
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'py-fhe'))
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from bfv.batch_encoder import BatchEncoder
 from bfv.bfv_decryptor import BFVDecryptor
@@ -15,7 +16,6 @@ from bfv.bfv_encryptor import BFVEncryptor
 from bfv.bfv_evaluator import BFVEvaluator
 from bfv.bfv_key_generator import BFVKeyGenerator
 from bfv.bfv_parameters import BFVParameters
-import json
 
 print("="*80)
 print("SIMULATING QUESTIONNAIRE FLOW")

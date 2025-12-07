@@ -16,7 +16,6 @@ from bfv.batch_encoder import BatchEncoder
 from util.ciphertext import Ciphertext
 from util.polynomial import Polynomial
 from util.secret_key import SecretKey
-import json
 
 
 def deserialize_polynomial(data):
