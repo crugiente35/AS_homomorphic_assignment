@@ -1,5 +1,5 @@
 from eralchemy2 import render_er
-from models import Base, Questionnaire, Response, SubmissionRecord
+from models import Base, Questionnaire, SubmissionRecord
 import os
 
 def generate_diagram():

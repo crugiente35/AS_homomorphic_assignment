@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import json
 import ssl
 
-from models import init_db, get_session, Questionnaire, Response, SubmissionRecord
+from models import init_db, get_session, Questionnaire, SubmissionRecord
 from bfv.bfv_evaluator import BFVEvaluator
 from bfv.bfv_parameters import BFVParameters
 from bfv.bfv_decryptor import BFVDecryptor
@@ -338,9 +338,6 @@ def submit_answers():
 
         questionnaire.set_accumulated_responses(accumulated)
         questionnaire.num_responses += 1
-        
-        response = Response(questionnaire_id=questionnaire.id)
-        session.add(response)
         
         submission_record = SubmissionRecord(
             questionnaire_id=questionnaire.id,

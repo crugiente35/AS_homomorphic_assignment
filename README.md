@@ -115,21 +115,32 @@ Question 1: ¿Cuál es tu lenguaje de programación favorito?
 
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
-| `id` | Integer | ID único |
-| `link` | String | Link único del cuestionario |
-| `deadline` | DateTime | Fecha límite |
+| `id` | Integer | ID único (Primary Key) |
+| `link` | String(255) | Link único del cuestionario (único, indexado) |
+| `deadline` | DateTime | Fecha límite para responder |
 | `questions_json` | Text | JSON con preguntas y opciones |
 | `poly_degree` | Integer | Grado del polinomio (parámetro BFV) |
-| `plain_modulus` | Integer | Módulo de texto plano |
-| `ciph_modulus` | String | Módulo de cifrado (número grande) |
-| `public_key_json` | Text | Clave pública serializada |
-| `secret_key_json` | Text | Clave secreta serializada |
-| `accumulated_responses_json` | Text | Respuestas cifradas acumuladas |
+| `plain_modulus` | Integer | Módulo de texto plano (parámetro BFV) |
+| `ciph_modulus` | String(100) | Módulo de cifrado (número grande, almacenado como string) |
+| `public_key_json` | Text | Clave pública serializada (JSON) |
+| `secret_key_json` | Text | Clave secreta serializada (JSON) |
+| `accumulated_responses_json` | Text | Respuestas cifradas acumuladas (JSON, nullable) |
+| `decrypted_results_json` | Text | Resultados descifrados (JSON, nullable) |
+| `is_decrypted` | Integer | Flag booleano: 0=no descifrado, 1=descifrado |
+| `hide_results_until_deadline` | Integer | Flag booleano: 1=ocultar resultados hasta deadline, 0=mostrar |
+| `created_at` | DateTime | Fecha de creación (UTC) |
 | `num_responses` | Integer | Número de respuestas recibidas |
 
-### Tabla `responses`
+### Tabla `submission_records`
 
-Rastrea metadata de respuestas individuales (sin datos cifrados).
+Rastrea qué certificados de cliente (usuarios) han respondido cada cuestionario para prevenir respuestas duplicadas.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `id` | Integer | ID único (Primary Key) |
+| `questionnaire_id` | Integer | ID del cuestionario (Foreign Key, indexado) |
+| `cert_fingerprint` | String(64) | Huella digital SHA-256 del certificado del cliente |
+| `submitted_at` | DateTime | Fecha y hora de envío (UTC) |
 
 ## 🔐 Cómo Funciona
 

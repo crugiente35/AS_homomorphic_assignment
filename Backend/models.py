@@ -108,22 +108,6 @@ class Questionnaire(Base):
         self.is_decrypted = 1
 
 
-class Response(Base):
-    """
-    Optional table to track individual responses (without decrypting them).
-    Useful for analytics like response count per timestamp.
-    """
-    __tablename__ = 'responses'
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    questionnaire_id = Column(Integer, nullable=False, index=True)
-    submitted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    # We don't store the actual encrypted data here, just metadata
-    
-    def __repr__(self):
-        return f"<Response(id={self.id}, questionnaire_id={self.questionnaire_id}, submitted_at='{self.submitted_at}')>"
-
-
 class SubmissionRecord(Base):
     """
     Table to track which certificate fingerprints have answered which questionnaire.
