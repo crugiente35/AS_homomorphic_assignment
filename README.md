@@ -340,12 +340,6 @@ Muestra resultados en formato texto con barras ASCII.
 
 ## 🐛 Troubleshooting
 
-### Error: "No module named 'bfv'"
-
-Asegúrate de que `py-fhe` está en `Backend/` y que los imports incluyen:
-```python
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'py-fhe'))
-```
 
 ### Error: "Questionnaire not found"
 
