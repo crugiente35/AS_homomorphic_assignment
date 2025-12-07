@@ -1,229 +1,241 @@
-# 🚀 Inicio Rápido - Sistema de Cuestionarios con Cifrado Homomórfico
+# 🚀 Quick Start - Homomorphic Encryption Questionnaire System
 
-## Pasos para empezar en 5 minutos
+## Get started in 5 minutes
 
-### 1️⃣ Instalar dependencias
+### 1️⃣ Create Certificates
+
+```powershell
+cd Backend/certs
+generate_ca.bat
+generate_certs.bat Alice
+generate_certs.bat Bob
+generate_certs.bat Trudy
+```
+
+**Important**: Install the Root CA Certificate `ca.crt` and the client certificate `*.p12` in your browser.
+
+### 2️⃣ Install Backend dependencies
 
 ```powershell
 cd Backend
+pip install git+https://github.com/sarojaerabelli/py-fhe.git
 pip install -r requirements.txt
 ```
 
-### 2️⃣ Crear un cuestionario de ejemplo
-
-```powershell
-python create_questionnaire.py
-```
-
-**Salida esperada:**
-```
-✅ Questionnaire created successfully!
-   Link: aB3dEf9HiJkLmN0pQr
-   URL: http://localhost:5000/questionnaire.html?id=aB3dEf9HiJkLmN0pQr
-```
-
-### 3️⃣ Iniciar el servidor
+### 3️⃣ Start the Backend server
 
 ```powershell
 python app.py
 ```
 
-**Salida esperada:**
+**Expected output:**
 ```
-Starting Flask server...
+Starting Flask server with mTLS...
 Server ready!
-Access the application at: http://localhost:5000
-* Running on http://0.0.0.0:5000
+Access the application at: https://localhost:5000
 ```
 
-### 4️⃣ Abrir el cuestionario
-
-Abre tu navegador en la URL generada:
-```
-http://localhost:5000/questionnaire.html?id=aB3dEf9HiJkLmN0pQr
-```
-
-### 5️⃣ Probar el cifrado (opcional)
-
-Abre la página de test:
-```
-http://localhost:5000/test.html
-```
-
-Haz clic en "▶ Ejecutar Todos los Tests" para verificar que todo funciona.
-
-### 6️⃣ Responder el cuestionario
-
-1. Abre el cuestionario en el navegador
-2. Responde todas las preguntas
-3. Haz clic en "Enviar Respuestas Cifradas 🔐"
-4. ¡Tus respuestas se cifran en el navegador y se envían al servidor!
-
-### 7️⃣ Ver resultados descifrados
+### 4️⃣ Build the Frontend
 
 ```powershell
-# Listar todos los cuestionarios
-python view_results.py --list
-
-# Ver resultados de tu cuestionario
-python view_results.py --link aB3dEf9HiJkLmN0pQr
+cd Frontend
+npm install
+npm run build
 ```
 
-**Salida esperada:**
+### 5️⃣ Open the application
+
+Open `https://localhost:5000` in Chrome (or your preferred browser).
+
+**Note**: Select a client certificate (Alice, Bob, or Trudy) when prompted.
+
+### 6️⃣ Create a questionnaire
+
+Use the web interface to create a new questionnaire, or run:
+
+```powershell
+cd Backend
+python create_questionnaire.py
+```
+
+### 7️⃣ Answer the questionnaire
+
+1. Open the questionnaire in the browser
+2. Answer all questions
+3. Click "Submit Encrypted Answers 🔐"
+4. Your answers are encrypted in the browser and sent to the server!
+
+### 8️⃣ View decrypted results
+
+```powershell
+# List all questionnaires
+python view_results.py --list
+
+# View results of your questionnaire
+python view_results.py --link <questionnaire-link>
+```
+
+**Expected output:**
 ```
 ================================================================================
 RESULTS (Decrypted Accumulated Votes)
 ================================================================================
 
-Question 1: ¿Cuál es tu lenguaje de programación favorito?
+Question 1: What is your favorite programming language?
 --------------------------------------------------------------------------------
   Python                         |   1 votes (100.0%) ██████████████████████████
 ```
 
 ---
 
-## 🎯 Comandos Útiles
+## 🎯 Useful Commands
 
-### Ver todos los cuestionarios
+### View all questionnaires
 ```powershell
 python view_results.py --list
 ```
 
-### Ver estadísticas sin descifrar
-Abre en el navegador:
+### View statistics without decrypting
+Open in browser:
 ```
-http://localhost:5000/api/questionnaire/<link>/stats
+https://localhost:5000/api/questionnaire/<link>/stats
 ```
 
-### Crear cuestionario personalizado
+### Create custom questionnaire
 
-Edita `create_questionnaire.py` y modifica la función `example_questionnaire()`:
+Edit `create_questionnaire.py` and modify the `example_questionnaire()` function:
 
 ```python
 questions = [
     {
-        'text': '¿Tu pregunta aquí?',
+        'text': 'Your question here?',
         'options': ['Op1', 'Op2', 'Op3', 'Op4', 'Op5', 'Op6', 'Op7', 'Op8']
     }
 ]
 
-create_questionnaire(questions, deadline_days=30, link='mi-encuesta')
+create_questionnaire(questions, deadline_days=30, link='my-survey')
 ```
 
-Luego ejecuta:
+Then run:
 ```powershell
 python create_questionnaire.py
 ```
 
 ---
 
-## 📁 Estructura de Archivos
+## 📁 File Structure
 
 ```
 AS_assignment/
 ├── Frontend/
-│   ├── questionnaire.html      # Página del cuestionario
-│   ├── test.html               # Página de pruebas
-│   └── *.js                    # Módulos de cifrado BFV
+│   ├── src/
+│   │   ├── pages/           # React components
+│   │   ├── crypto.js        # BFV encryption
+│   │   └── main.jsx         # App entry point
+│   ├── proxy-server.js      # mTLS proxy
+│   └── vite.config.js       # Vite configuration
 │
 └── Backend/
-    ├── app.py                  # Servidor Flask
-    ├── models.py               # Base de datos SQLAlchemy
-    ├── create_questionnaire.py # Crear cuestionarios
-    ├── view_results.py         # Ver resultados
-    └── py-fhe/                 # Librería de cifrado
+    ├── app.py               # Flask server with mTLS
+    ├── models.py            # SQLAlchemy database
+    ├── create_questionnaire.py # Create questionnaires
+    ├── view_results.py      # View results
+    ├── certs/               # SSL certificates
+    └── py-fhe/              # Encryption library
 ```
 
 ---
 
-## 🔒 ¿Qué hace cada componente?
+## 🔒 What does each component do?
 
-### Frontend (JavaScript)
-- **polynomial.js**: Aritmética de polinomios en anillos
-- **ntt.js**: Transformada NTT para multiplicación rápida
-- **batch_encoder.js**: Codifica vectores como polinomios (CRT)
-- **bfv_encryptor.js**: Cifra polinomios con BFV
-- **crypto_structures.js**: Clases Plaintext, Ciphertext, PublicKey
+### Frontend (React + JavaScript)
+- **crypto.js**: BFV encryption implementation (polynomial arithmetic, NTT, encoding, encryption)
+- **pages/**: React components for Home, Create, List, Questionnaire, and Results views
+- **proxy-server.js**: Node.js proxy that handles client certificates for API calls
 
 ### Backend (Python)
-- **models.py**: Define tabla SQL `questionnaires` con SQLAlchemy
-- **app.py**: API Flask para servir cuestionarios y recibir respuestas
-- **create_questionnaire.py**: Genera claves BFV y crea cuestionarios
-- **view_results.py**: Descifra respuestas acumuladas con clave secreta
+- **models.py**: Defines SQL tables `questionnaires` and `submission_records` with SQLAlchemy
+- **app.py**: Flask API to serve questionnaires and receive responses with mTLS authentication
+- **create_questionnaire.py**: Generates BFV keys and creates questionnaires
+- **view_results.py**: Decrypts accumulated responses with secret key
 
 ---
 
-## 🔐 Flujo de Cifrado
+## 🔐 Encryption Flow
 
 ```
-Usuario → [Frontend]
-   1. Responde: Opción 2
-   2. Codifica: [0, 0, 1, 0, 0, 0, 0, 0]
-   3. Cifra con clave pública
-   4. Envía ciphertext
+User → [Frontend]
+   1. Answer: Option 2
+   2. Encode: [0, 0, 1, 0, 0, 0, 0, 0]
+   3. Encrypt with public key
+   4. Send ciphertext
 
-Servidor → [Backend]
-   5. Recibe ciphertext
-   6. Suma homomórficamente: accumulated += ciphertext
-   7. Guarda en DB (cifrado)
+Server → [Backend]
+   5. Receive ciphertext
+   6. Homomorphically add: accumulated += ciphertext
+   7. Save in DB (encrypted)
 
-Administrador → [Backend]
-   8. Ejecuta view_results.py
-   9. Descifra con clave secreta
-   10. Ve totales: [5, 3, 8, 2, 1, 0, 0, 0]
+Administrator → [Backend]
+   8. Run view_results.py
+   9. Decrypt with secret key
+   10. View totals: [5, 3, 8, 2, 1, 0, 0, 0]
 ```
 
-**El servidor NUNCA ve las respuestas individuales en texto plano!** 🔒
+**The server NEVER sees individual responses in plain text!** 🔒
 
 ---
 
-## ⚠️ Solución de Problemas
+## ⚠️ Troubleshooting
 
 ### Error: ModuleNotFoundError: No module named 'flask'
 ```powershell
 pip install -r requirements.txt
 ```
 
+### Error: Certificate required / SSL handshake failed
+Make sure you've installed:
+1. CA certificate `ca.crt` as a trusted root
+2. A client certificate (Alice.p12, Bob.p12, or Trudy.p12)
+
 ### Error: Questionnaire not found
-Verifica el link:
+Verify the link:
 ```powershell
 python view_results.py --list
 ```
 
-### Frontend no carga archivos JS
-Asegúrate de que el servidor Flask está corriendo:
-```powershell
-python app.py
-```
+### Frontend doesn't load
+Make sure:
+1. The Flask server is running: `python app.py`
+2. The frontend is built: `npm run build` in Frontend/
+3. You're accessing via HTTPS: `https://localhost:5000`
 
-Y accede vía `http://localhost:5000`, no abriendo el HTML directamente.
-
-### Puerto 5000 ya en uso
-Cambia el puerto en `app.py`:
+### Port 5000 already in use
+Change the port in `app.py`:
 ```python
-app.run(debug=True, host='0.0.0.0', port=8080)
+run_simple('0.0.0.0', 8080, wrapped_app, ssl_context=context, ...)
 ```
 
 ---
 
-## 📚 Más Información
+## 📚 More Information
 
-Lee el [README.md](README.md) completo para:
-- Explicación detallada de BFV
-- Personalización avanzada
-- Parámetros de seguridad
-- API endpoints completos
-
----
-
-## 🎓 Conceptos Clave
-
-- **BFV**: Esquema de cifrado totalmente homomórfico
-- **One-hot encoding**: Vector con un 1 y el resto 0s
-- **Suma homomórfica**: Sumar ciphertexts sin descifrar
-- **Clave pública**: Compartida con todos (frontend)
-- **Clave secreta**: Solo para el servidor (descifrado)
+Read the complete [README.md](README.md) for:
+- Detailed BFV explanation
+- Advanced customization
+- Security parameters
+- Complete API endpoints
 
 ---
 
-¡Listo para empezar! 🚀
+## 🎓 Key Concepts
+
+- **BFV**: Fully homomorphic encryption scheme
+- **One-hot encoding**: Vector with one 1 and the rest 0s
+- **Homomorphic addition**: Add ciphertexts without decrypting
+- **Public key**: Shared with everyone (frontend)
+- **Secret key**: Only for the server (decryption)
+- **mTLS**: Mutual TLS authentication with client certificates
+
+---
+
+Ready to start! 🚀

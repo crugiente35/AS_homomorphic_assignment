@@ -1,99 +1,100 @@
-# 📊 Arquitectura del Sistema
+# 📊 System Architecture
 
-## Diagrama de Componentes
+## Component Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           ADMINISTRADOR                              │
+│                          ADMINISTRATOR                               │
 │                                                                      │
-│  1. Crear Cuestionario                                              │
-│     $ python create_questionnaire.py                                │
+│  1. Create Questionnaire                                            │
+│     Web Interface or $ python create_questionnaire.py               │
 │                                                                      │
 │     ┌──────────────────────────────────────┐                        │
-│     │  Genera Claves BFV                   │                        │
+│     │  Generate BFV Keys                   │                        │
 │     │  • Public Key  → Frontend            │                        │
-│     │  • Secret Key  → Backend (segura)    │                        │
+│     │  • Secret Key  → Backend (secure)    │                        │
 │     └──────────────────────────────────────┘                        │
 │                          ↓                                           │
-│     Guarda en Base de Datos (SQLite/PostgreSQL)                     │
+│     Save in Database (SQLite/PostgreSQL)                            │
 │                          ↓                                           │
-│     Comparte link: http://server/questionnaire.html?id=abc123       │
+│     Share link: https://server/#/questionnaire/abc123               │
 └─────────────────────────────────────────────────────────────────────┘
                                    ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│                            USUARIOS                                  │
+│                             USERS                                    │
 │                                                                      │
-│  2. Responder Cuestionario                                          │
-│     Navegador web → http://server/questionnaire.html?id=abc123      │
+│  2. Answer Questionnaire                                            │
+│     Web Browser → https://server (with client certificate)          │
 │                                                                      │
 │     ┌──────────────────────────────────────┐                        │
-│     │  Frontend (JavaScript)               │                        │
+│     │  Frontend (React + JavaScript)       │                        │
 │     │                                       │                        │
-│     │  a) Recibe Public Key                │                        │
-│     │  b) Usuario selecciona respuestas    │                        │
+│     │  a) Receive Public Key               │                        │
+│     │  b) User selects answers             │                        │
 │     │  c) One-hot encode: [0,0,1,0,...]    │                        │
-│     │  d) Cifra con BFV                    │                        │
-│     │  e) Envía ciphertexts al servidor    │                        │
+│     │  d) Encrypt with BFV                 │                        │
+│     │  e) Send ciphertexts to server       │                        │
 │     └──────────────────────────────────────┘                        │
 │                          ↓                                           │
-│           POST /api/submit-answers                                   │
+│           POST /api/submit-answers (with client cert)                │
 │           { encrypted_answers: [...] }                               │
 └─────────────────────────────────────────────────────────────────────┘
                                    ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│                          SERVIDOR (Backend)                          │
+│                         SERVER (Backend)                             │
 │                                                                      │
-│  3. Recibir y Acumular Respuestas Cifradas                          │
-│     Flask API + SQLAlchemy                                           │
+│  3. Receive and Accumulate Encrypted Responses                      │
+│     Flask API + SQLAlchemy + mTLS                                    │
 │                                                                      │
 │     ┌──────────────────────────────────────┐                        │
-│     │  Suma Homomórfica (BFV Evaluator)    │                        │
+│     │  Homomorphic Addition (BFV Evaluator)│                        │
 │     │                                       │                        │
-│     │  Si primera respuesta:               │                        │
+│     │  If first response:                  │                        │
 │     │    accumulated = ciphertext_1        │                        │
 │     │                                       │                        │
-│     │  Si ya hay respuestas:               │                        │
+│     │  If responses exist:                 │                        │
 │     │    accumulated = accumulated +       │                        │
 │     │                  ciphertext_new      │                        │
 │     │                                       │                        │
-│     │  ⚠️ Servidor NO ve respuestas!       │                        │
+│     │  ⚠️ Server does NOT see responses!   │                        │
 │     └──────────────────────────────────────┘                        │
 │                          ↓                                           │
-│     Guarda accumulated (cifrado) en DB                               │
+│     Save accumulated (encrypted) in DB                               │
+│     Record certificate fingerprint to prevent duplicates             │
 └─────────────────────────────────────────────────────────────────────┘
                                    ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           ADMINISTRADOR                              │
+│                          ADMINISTRATOR                               │
 │                                                                      │
-│  4. Ver Resultados                                                  │
-│     $ python view_results.py --link abc123                          │
+│  4. View Results                                                    │
+│     Web Interface or $ python view_results.py --link abc123         │
 │                                                                      │
 │     ┌──────────────────────────────────────┐                        │
-│     │  Descifrado con Secret Key           │                        │
+│     │  Decryption with Secret Key          │                        │
 │     │                                       │                        │
-│     │  1. Lee accumulated de DB            │                        │
-│     │  2. Descifra con secret_key          │                        │
+│     │  1. Read accumulated from DB         │                        │
+│     │  2. Decrypt with secret_key          │                        │
 │     │  3. Decode vector                    │                        │
-│     │  4. Muestra totales:                 │                        │
-│     │     Opción 1: 15 votos (30%)         │                        │
-│     │     Opción 2: 25 votos (50%)         │                        │
-│     │     Opción 3: 10 votos (20%)         │                        │
+│     │  4. Show totals:                     │                        │
+│     │     Option 1: 15 votes (30%)         │                        │
+│     │     Option 2: 25 votes (50%)         │                        │
+│     │     Option 3: 10 votes (20%)         │                        │
 │     └──────────────────────────────────────┘                        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Flujo de Datos Detallado
+## Detailed Data Flow
 
-### 📤 Envío de Respuesta (Usuario → Servidor)
+### 📤 Response Submission (User → Server)
 
 ```
-Usuario en Navegador
+User in Browser
          │
-         │ 1. Selecciona: "Opción 2"
+         │ 1. Selects: "Option 2"
          ↓
-    [Frontend JS]
+    [Frontend React/JS]
          │
          │ 2. One-hot encode
          │    [0, 0, 1, 0, 0, 0, 0, 0]
@@ -101,53 +102,59 @@ Usuario en Navegador
     BatchEncoder
          │
          │ 3. Encode (CRT batching)
-         │    → Plaintext (polinomio)
+         │    → Plaintext (polynomial)
          ↓
     BFVEncryptor
          │
-         │ 4. Encrypt con public_key
+         │ 4. Encrypt with public_key
          │    plaintext → ciphertext
          │    (c0, c1)
          ↓
-    Serializar JSON
+    Serialize JSON
          │
-         │ 5. POST /api/submit-answers
+         │ 5. POST /api/submit-answers (via mTLS proxy)
          │    {
          │      questionnaire_id: "abc123",
          │      encrypted_answers: [
          │        { c0: {...}, c1: {...} }
          │      ]
          │    }
+         │    + Client Certificate
          ↓
     [Backend Flask]
          │
-         │ 6. Deserializar ciphertexts
+         │ 6. Verify client certificate
+         │    Check for duplicate submission
+         ↓
+         │ 7. Deserialize ciphertexts
          ↓
     BFVEvaluator
          │
-         │ 7. Suma homomórfica
+         │ 8. Homomorphic addition
          │    accumulated = accumulated + new
          ↓
-    Base de Datos
+    Database
          │
-         │ 8. Guardar accumulated (cifrado)
-         └─→ SQLite: tabla questionnaires
+         │ 9. Save accumulated (encrypted)
+         │    Record certificate fingerprint
+         └─→ SQLite: tables questionnaires, submission_records
 ```
 
-### 📥 Lectura de Resultados (Administrador)
+### 📥 Results Reading (Administrator)
 
 ```
-Administrador
+Administrator
          │
          │ 1. python view_results.py --link abc123
+         │    or Web Interface
          ↓
-    [Backend Script]
+    [Backend Script/API]
          │
-         │ 2. Lee accumulated de DB
+         │ 2. Read accumulated from DB
          ↓
     BFVDecryptor
          │
-         │ 3. Descifra con secret_key
+         │ 3. Decrypt with secret_key
          │    ciphertext → plaintext
          ↓
     BatchEncoder
@@ -155,20 +162,20 @@ Administrador
          │ 4. Decode (CRT)
          │    plaintext → [5, 10, 15, 3, ...]
          ↓
-    Pantalla
+    Display
          │
-         │ 5. Muestra resultados
-         └─→ Opción 1: 5 votos
-             Opción 2: 10 votos
-             Opción 3: 15 votos
+         │ 5. Show results
+         └─→ Option 1: 5 votes
+             Option 2: 10 votes
+             Option 3: 15 votes
              ...
 ```
 
 ---
 
-## Estructura de Base de Datos
+## Database Structure
 
-### Tabla: `questionnaires`
+### Table: `questionnaires`
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -178,19 +185,19 @@ Administrador
 ├────────────────────────┼────────────────────────────────────┤
 │ deadline               │ DATETIME                           │
 ├────────────────────────┼────────────────────────────────────┤
-│ questions_json         │ TEXT (JSON serializado)            │
+│ questions_json         │ TEXT (JSON serialized)             │
 │                        │ [                                  │
 │                        │   {                                │
-│                        │     text: "¿Pregunta?",            │
+│                        │     text: "Question?",             │
 │                        │     options: ["A", "B", ...]       │
 │                        │   }                                │
 │                        │ ]                                  │
 ├────────────────────────┼────────────────────────────────────┤
 │ poly_degree            │ INTEGER (8, 16, 32, ...)           │
 ├────────────────────────┼────────────────────────────────────┤
-│ plain_modulus          │ INTEGER (primo, ej: 17)            │
+│ plain_modulus          │ INTEGER (prime, e.g.: 17)          │
 ├────────────────────────┼────────────────────────────────────┤
-│ ciph_modulus           │ STRING (número grande)             │
+│ ciph_modulus           │ STRING (large number)              │
 ├────────────────────────┼────────────────────────────────────┤
 │ public_key_json        │ TEXT (JSON)                        │
 │                        │ {                                  │
@@ -198,7 +205,7 @@ Administrador
 │                        │   p1: { coeffs: [...] }            │
 │                        │ }                                  │
 ├────────────────────────┼────────────────────────────────────┤
-│ secret_key_json        │ TEXT (JSON) 🔐 SECRETO             │
+│ secret_key_json        │ TEXT (JSON) 🔐 SECRET              │
 │                        │ {                                  │
 │                        │   coeffs: [...]                    │
 │                        │ }                                  │
@@ -210,19 +217,28 @@ Administrador
 │                        │   ...                              │
 │                        │ ]                                  │
 ├────────────────────────┼────────────────────────────────────┤
-│ num_responses          │ INTEGER (contador)                 │
+│ decrypted_results_json │ TEXT (JSON, nullable)              │
+├────────────────────────┼────────────────────────────────────┤
+│ is_decrypted           │ INTEGER (0/1 boolean)              │
+├────────────────────────┼────────────────────────────────────┤
+│ hide_results_until     │ INTEGER (0/1 boolean)              │
+│ _deadline              │                                    │
+├────────────────────────┼────────────────────────────────────┤
+│ num_responses          │ INTEGER (counter)                  │
 ├────────────────────────┼────────────────────────────────────┤
 │ created_at             │ DATETIME                           │
 └────────────────────────┴────────────────────────────────────┘
 ```
 
-### Tabla: `responses` (metadata)
+### Table: `submission_records`
 
 ```
 ┌─────────────────────────────────────────────────┐
 │ id (PK)              │ INTEGER (autoincrement)  │
 ├──────────────────────┼──────────────────────────┤
 │ questionnaire_id     │ INTEGER (FK)             │
+├──────────────────────┼──────────────────────────┤
+│ cert_fingerprint     │ STRING(64) SHA-256 hash  │
 ├──────────────────────┼──────────────────────────┤
 │ submitted_at         │ DATETIME                 │
 └──────────────────────┴──────────────────────────┘
@@ -306,96 +322,108 @@ GET /api/questionnaire/abc123/stats
 
 ---
 
-## Seguridad y Privacidad
+## Security and Privacy
 
-### 🔐 Garantías Criptográficas
+### 🔐 Cryptographic Guarantees
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  FRONTEND (Usuario)                                      │
-│  ✓ Tiene: public_key                                     │
-│  ✓ Puede: cifrar mensajes                                │
-│  ✗ NO puede: descifrar mensajes                          │
-│  ✗ NO puede: ver respuestas de otros                     │
+│  FRONTEND (User)                                         │
+│  ✓ Has: public_key                                       │
+│  ✓ Can: encrypt messages                                 │
+│  ✗ CANNOT: decrypt messages                              │
+│  ✗ CANNOT: see other users' responses                    │
 └──────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────┐
-│  BACKEND (Servidor)                                      │
-│  ✓ Tiene: ciphertexts (cifrados)                         │
-│  ✓ Puede: sumar ciphertexts homomórficamente             │
-│  ✗ NO puede: descifrar sin secret_key                    │
-│  ✗ NO puede: ver respuestas individuales                 │
+│  BACKEND (Server)                                        │
+│  ✓ Has: ciphertexts (encrypted)                          │
+│  ✓ Can: add ciphertexts homomorphically                  │
+│  ✗ CANNOT: decrypt without secret_key                    │
+│  ✗ CANNOT: see individual responses                      │
 └──────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────┐
-│  ADMINISTRADOR                                           │
-│  ✓ Tiene: secret_key (guardada de forma segura)         │
-│  ✓ Puede: descifrar accumulated (totales)               │
-│  ✗ NO puede: ver respuestas individuales originales     │
-│                (solo totales acumulados)                 │
+│  ADMINISTRATOR                                           │
+│  ✓ Has: secret_key (securely stored)                     │
+│  ✓ Can: decrypt accumulated (totals)                     │
+│  ✗ CANNOT: see original individual responses             │
+│            (only accumulated totals)                     │
+└──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│  mTLS AUTHENTICATION                                     │
+│  ✓ Each user has a unique client certificate             │
+│  ✓ Server tracks certificate fingerprints                │
+│  ✓ Prevents duplicate submissions                        │
+│  ✓ Cannot impersonate other users                        │
 └──────────────────────────────────────────────────────────┘
 ```
 
-### 🛡️ Propiedades del Sistema
+### 🛡️ System Properties
 
-1. **Confidencialidad**: Respuestas individuales nunca en texto plano
-2. **Agregación Privada**: Sumas sin descifrar
-3. **Verificabilidad**: Administrador puede verificar totales
-4. **No Repudio**: Cada respuesta se registra (timestamp)
+1. **Confidentiality**: Individual responses never in plain text
+2. **Private Aggregation**: Sums without decrypting
+3. **Verifiability**: Administrator can verify totals
+4. **Non-Repudiation**: Each response is recorded (timestamp + certificate)
+5. **Authentication**: mTLS prevents unauthorized access and duplicate votes
 
 ---
 
-## Ejemplos de Uso
+## Use Case Examples
 
-### Caso 1: Encuesta de Satisfacción Anónima
+### Case 1: Anonymous Satisfaction Survey
 
 ```
-Pregunta: "¿Cómo calificarías tu experiencia?"
-Opciones: 1⭐ 2⭐ 3⭐ 4⭐ 5⭐ N/A N/A N/A
+Question: "How would you rate your experience?"
+Options: 1⭐ 2⭐ 3⭐ 4⭐ 5⭐ N/A N/A N/A
 
-Usuario 1 selecciona: 5⭐ → cifra [0,0,0,0,1,0,0,0]
-Usuario 2 selecciona: 4⭐ → cifra [0,0,0,1,0,0,0,0]
-Usuario 3 selecciona: 5⭐ → cifra [0,0,0,0,1,0,0,0]
+User 1 (Alice) selects: 5⭐ → encrypts [0,0,0,0,1,0,0,0]
+User 2 (Bob) selects: 4⭐ → encrypts [0,0,0,1,0,0,0,0]
+User 3 (Trudy) selects: 5⭐ → encrypts [0,0,0,0,1,0,0,0]
 
-Servidor acumula (sin ver):
+Server accumulates (without seeing):
   accumulated = sum([ciph1, ciph2, ciph3])
+  Records: Alice, Bob, Trudy voted (prevents re-voting)
 
-Administrador descifra:
+Administrator decrypts:
   [0, 0, 0, 1, 2, 0, 0, 0]
-  → 1 persona votó 4⭐, 2 personas votaron 5⭐
-  → Promedio: 4.67⭐
+  → 1 person voted 4⭐, 2 people voted 5⭐
+  → Average: 4.67⭐
 ```
 
-### Caso 2: Votación Privada
+### Case 2: Private Voting
 
 ```
-Pregunta: "¿A favor de la propuesta X?"
-Opciones: Sí, No, Abstención, N/A, N/A, N/A, N/A, N/A
+Question: "In favor of proposal X?"
+Options: Yes, No, Abstain, N/A, N/A, N/A, N/A, N/A
 
-100 usuarios votan (cada uno cifra su respuesta)
+100 users vote (each encrypts their response with their certificate)
 
-Servidor acumula sin ver votos individuales
+Server accumulates without seeing individual votes
+Tracks which certificates have voted
 
-Administrador descifra resultado:
+Administrator decrypts result:
   [65, 30, 5, 0, 0, 0, 0, 0]
-  → 65 Sí, 30 No, 5 Abstenciones
-  → Propuesta APROBADA (65%)
+  → 65 Yes, 30 No, 5 Abstentions
+  → Proposal APPROVED (65%)
 ```
 
 ---
 
-## Limitaciones Actuales
+## Current Limitations
 
-1. **Tamaño del Vector**: Máximo 8 opciones por pregunta (con poly_degree=8)
-2. **Solo Sumas**: El sistema actual solo soporta suma homomórfica
-3. **No Multiplicación**: No se implementa multiplicación de respuestas
-4. **Parámetros de Demo**: Los parámetros actuales son para demostración, no producción
+1. **Vector Size**: Maximum 8 options per question (with poly_degree=8)
+2. **Only Addition**: Current system only supports homomorphic addition
+3. **No Multiplication**: Multiplication of responses not implemented
+4. **Demo Parameters**: Current parameters are for demonstration, not production
 
-### Mejoras Futuras
+### Future Improvements
 
-- [ ] Soporte para más opciones (poly_degree=16, 32, ...)
-- [ ] Multiplicación homomórfica para estadísticas complejas
-- [ ] Rotaciones para operaciones avanzadas
-- [ ] Parámetros de seguridad para producción
-- [ ] Interfaz de administración web
-- [ ] Export de resultados a CSV/PDF
+- [ ] Support for more options (poly_degree=16, 32, ...)
+- [ ] Homomorphic multiplication for complex statistics
+- [ ] Rotations for advanced operations
+- [ ] Production security parameters
+- [ ] Web administration interface
+- [ ] Export results to CSV/PDF
+- [ ] Certificate revocation list (CRL) support

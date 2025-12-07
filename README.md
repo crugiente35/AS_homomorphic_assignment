@@ -1,42 +1,70 @@
-# Sistema de Cuestionarios con Cifrado Homomórfico (BFV)
+# Homomorphic Encryption Questionnaire System (BFV)
 
-Sistema completo de cuestionarios donde las respuestas se cifran en el cliente (frontend) usando el esquema BFV (Brakerski-Fan-Vercauteren) de cifrado totalmente homomórfico. El servidor solo puede sumar las respuestas cifradas sin verlas en texto plano.
+Complete questionnaire system where responses are encrypted on the client (frontend) using the BFV (Brakerski-Fan-Vercauteren) fully homomorphic encryption scheme. The server can only add encrypted responses without seeing them in plain text.
 
-## 🔒 Características
+## 🔒 Features
 
-- **Cifrado en el Cliente**: Las respuestas se cifran en JavaScript antes de enviarlas al servidor
-- **Privacidad Total**: El servidor nunca ve las respuestas individuales en texto plano
-- **Suma Homomórfica**: El servidor puede sumar respuestas cifradas sin descifrarlas
-- **Base de Datos Segura**: Almacena respuestas cifradas acumuladas con SQLAlchemy
-- **Descifrado Controlado**: Solo el administrador con la clave secreta puede ver resultados
+- **Client-Side Encryption**: Responses are encrypted in JavaScript before sending to the server
+- **Total Privacy**: The server never sees individual responses in plain text
+- **Homomorphic Addition**: The server can add encrypted responses without decrypting them
+- **Secure Database**: Stores accumulated encrypted responses with SQLAlchemy
+- **Controlled Decryption**: Only the administrator with the secret key can view results
+- **mTLS Authentication**: Client certificate authentication to prevent duplicate submissions
 
-## 📁 Estructura del Proyecto
+## 📁 Project Structure
 
 ```
 AS_assignment/
 ├── Frontend/
-│   ├── questionnaire.html       # Interfaz web del cuestionario
-│   ├── results.html             # Página de visualización de resultados
-│   ├── polynomial.js            # Aritmética de polinomios
-│   ├── ntt.js                   # Transformada NTT/FTT
-│   ├── number_theory.js         # Funciones de teoría de números
-│   ├── random_sample.js         # Muestreo aleatorio
-│   ├── crypto_structures.js     # Plaintext, Ciphertext, PublicKey
-│   ├── batch_encoder.js         # Codificador CRT
-│   └── bfv_encryptor.js         # Cifrador BFV
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Home.jsx         # Landing page
+│   │   │   ├── Create.jsx       # Create new questionnaire
+│   │   │   ├── List.jsx         # List all questionnaires
+│   │   │   ├── Questionnaire.jsx # Answer questionnaire
+│   │   │   └── Results.jsx      # View decrypted results
+│   │   ├── crypto.js            # BFV encryption implementation
+│   │   ├── crypto.test.js       # Crypto unit tests
+│   │   ├── index.css            # Global styles
+│   │   └── main.jsx             # React app entry point
+│   ├── index.html               # HTML template
+│   ├── package.json             # Node.js dependencies
+│   ├── vite.config.js           # Vite configuration
+│   └── proxy-server.js          # mTLS proxy server for development
 │
 └── Backend/
-    ├── py-fhe/                  # Librería Python de FHE
-    ├── models.py                # Modelos SQLAlchemy
-    ├── app.py                   # API Flask
-    ├── create_questionnaire.py  # Script para crear cuestionarios
-    ├── view_results.py          # Script para ver resultados
-    └── requirements.txt         # Dependencias Python
+    ├── models.py                # SQLAlchemy database models
+    ├── app.py                   # Flask API server with mTLS
+    ├── create_questionnaire.py  # CLI script to create questionnaires
+    ├── view_results.py          # CLI script to view decrypted results
+    ├── requirements.txt         # Python dependencies
+    ├── certs/
+    │   ├── generate_ca.bat      # Generate CA certificate
+    │   └── generate_certs.bat   # Generate client certificates
+    └── debug/
+        ├── debug_decrypt.py     # Manual decryption testing
+        ├── test_encoder.py      # Encoder testing
+        ├── test_full_flow.py    # End-to-end flow testing
+        └── generate_schema.py   # Database schema diagram generator
 ```
 
-## 🚀 Instalación y Uso
+## 🚀 Installation and Usage
 
-### 1. Instalar Dependencias Backend
+### 1. Create Certificates
+
+First, generate the CA and client certificates for mTLS:
+
+```powershell
+cd Backend/certs
+generate_ca.bat
+generate_certs.bat Alice
+generate_certs.bat Bob
+generate_certs.bat Trudy
+```
+
+**Important**: Install the Root CA Certificate `ca.crt` and the client certificates `*.p12` in your browser/system.
+
+### 2. Install Backend Dependencies
 
 ```powershell
 cd Backend
@@ -44,64 +72,64 @@ pip install git+https://github.com/sarojaerabelli/py-fhe.git
 pip install -r requirements.txt
 ```
 
-### 2. Crear un Cuestionario
-
-```powershell
-python create_questionnaire.py
-```
-
-Este script:
-- Genera un par de claves BFV (pública/secreta)
-- Crea un cuestionario de ejemplo
-- Guarda todo en la base de datos SQLite
-- Devuelve un link único
-
-Salida de ejemplo:
-```
-✅ Questionnaire created successfully!
-   Link: aB3dEf9HiJkLmN0pQr
-   Deadline: 2025-12-30 12:00:00 UTC
-   URL: http://localhost:5000/questionnaire.html?id=aB3dEf9HiJkLmN0pQr
-```
-
-### 3. Iniciar el Servidor
+### 3. Start the Backend Server
 
 ```powershell
 python app.py
 ```
 
-El servidor estará disponible en `http://localhost:5000`
+The server will be available at `https://localhost:5000` (note: HTTPS with mTLS)
 
-### 4. Rellenar el Cuestionario
-
-Abre el navegador en la URL proporcionada:
-```
-http://localhost:5000/questionnaire.html?id=aB3dEf9HiJkLmN0pQr
-```
-
-El frontend:
-1. Descarga la clave pública del servidor
-2. Codifica cada respuesta como un vector one-hot
-3. Cifra cada vector con BFV
-4. Envía los ciphertexts al servidor
-
-### 5. Ver Resultados (Descifrados)
+### 4. Build the Frontend
 
 ```powershell
-# Listar todos los cuestionarios
-python view_results.py --list
-
-# Ver resultados de un cuestionario específico
-python view_results.py --link aB3dEf9HiJkLmN0pQr
+cd Frontend
+npm install
+npm run build
 ```
 
-Salida de ejemplo:
+### 5. Start the Frontend Proxy (for development)
+
+If you want to run in development mode:
+
+```powershell
+cd Frontend
+node proxy-server.js  # In one terminal
+npm run dev           # In another terminal
+```
+
+### 6. Open the Application
+
+Open `https://localhost:5000` in Chrome (or your preferred browser).
+
+**Note**: You'll need to select a client certificate (Alice, Bob, or Trudy) when prompted.
+
+### 7. Create a Questionnaire
+
+Use the web interface or run:
+
+```powershell
+cd Backend
+python create_questionnaire.py
+```
+
+### 8. View Results
+
+```powershell
+# List all questionnaires
+python view_results.py --list
+
+# View results of a specific questionnaire
+python view_results.py --link <questionnaire-link>
+```
+
+Example output:
 ```
 ================================================================================
 RESULTS (Decrypted Accumulated Votes)
 ================================================================================
 
-Question 1: ¿Cuál es tu lenguaje de programación favorito?
+Question 1: What is your favorite programming language?
 --------------------------------------------------------------------------------
   Python                         |  25 votes ( 50.0%) █████████████████████████
   JavaScript                     |  15 votes ( 30.0%) ███████████████
@@ -109,96 +137,96 @@ Question 1: ¿Cuál es tu lenguaje de programación favorito?
   C++                            |   5 votes ( 10.0%) █████
 ```
 
-## 📊 Base de Datos
+## 📊 Database
 
-### Tabla `questionnaires`
+### Table `questionnaires`
 
-| Campo | Tipo | Descripción |
+| Field | Type | Description |
 |-------|------|-------------|
-| `id` | Integer | ID único (Primary Key) |
-| `link` | String(255) | Link único del cuestionario (único, indexado) |
-| `deadline` | DateTime | Fecha límite para responder |
-| `questions_json` | Text | JSON con preguntas y opciones |
-| `poly_degree` | Integer | Grado del polinomio (parámetro BFV) |
-| `plain_modulus` | Integer | Módulo de texto plano (parámetro BFV) |
-| `ciph_modulus` | String(100) | Módulo de cifrado (número grande, almacenado como string) |
-| `public_key_json` | Text | Clave pública serializada (JSON) |
-| `secret_key_json` | Text | Clave secreta serializada (JSON) |
-| `accumulated_responses_json` | Text | Respuestas cifradas acumuladas (JSON, nullable) |
-| `decrypted_results_json` | Text | Resultados descifrados (JSON, nullable) |
-| `is_decrypted` | Integer | Flag booleano: 0=no descifrado, 1=descifrado |
-| `hide_results_until_deadline` | Integer | Flag booleano: 1=ocultar resultados hasta deadline, 0=mostrar |
-| `created_at` | DateTime | Fecha de creación (UTC) |
-| `num_responses` | Integer | Número de respuestas recibidas |
+| `id` | Integer | Unique ID (Primary Key) |
+| `link` | String(255) | Unique questionnaire link (unique, indexed) |
+| `deadline` | DateTime | Deadline to respond |
+| `questions_json` | Text | JSON with questions and options |
+| `poly_degree` | Integer | Polynomial degree (BFV parameter) |
+| `plain_modulus` | Integer | Plain text modulus (BFV parameter) |
+| `ciph_modulus` | String(100) | Cipher modulus (large number, stored as string) |
+| `public_key_json` | Text | Serialized public key (JSON) |
+| `secret_key_json` | Text | Serialized secret key (JSON) |
+| `accumulated_responses_json` | Text | Accumulated encrypted responses (JSON, nullable) |
+| `decrypted_results_json` | Text | Decrypted results (JSON, nullable) |
+| `is_decrypted` | Integer | Boolean flag: 0=not decrypted, 1=decrypted |
+| `hide_results_until_deadline` | Integer | Boolean flag: 1=hide results until deadline, 0=show |
+| `created_at` | DateTime | Creation date (UTC) |
+| `num_responses` | Integer | Number of responses received |
 
-### Tabla `submission_records`
+### Table `submission_records`
 
-Rastrea qué certificados de cliente (usuarios) han respondido cada cuestionario para prevenir respuestas duplicadas.
+Tracks which client certificates (users) have responded to each questionnaire to prevent duplicate submissions.
 
-| Campo | Tipo | Descripción |
+| Field | Type | Description |
 |-------|------|-------------|
-| `id` | Integer | ID único (Primary Key) |
-| `questionnaire_id` | Integer | ID del cuestionario (Foreign Key, indexado) |
-| `cert_fingerprint` | String(64) | Huella digital SHA-256 del certificado del cliente |
-| `submitted_at` | DateTime | Fecha y hora de envío (UTC) |
+| `id` | Integer | Unique ID (Primary Key) |
+| `questionnaire_id` | Integer | Questionnaire ID (Foreign Key, indexed) |
+| `cert_fingerprint` | String(64) | SHA-256 fingerprint of client certificate |
+| `submitted_at` | DateTime | Submission date and time (UTC) |
 
-## 🔐 Cómo Funciona
+## 🔐 How It Works
 
-### 1. Generación de Claves (Backend)
+### 1. Key Generation (Backend)
 
 ```python
 params = BFVParameters(poly_degree=8, plain_modulus=17, ciph_modulus=8000000000000)
 key_generator = BFVKeyGenerator(params)
-public_key = key_generator.public_key  # Se envía al frontend
-secret_key = key_generator.secret_key  # Se guarda en el servidor
+public_key = key_generator.public_key  # Sent to frontend
+secret_key = key_generator.secret_key  # Saved on server
 ```
 
-### 2. Cifrado (Frontend)
+### 2. Encryption (Frontend)
 
 ```javascript
-// Codificar respuesta como vector one-hot
-const vector = [0, 0, 1, 0, 0, 0, 0, 0];  // Usuario seleccionó opción 2
+// Encode response as one-hot vector
+const vector = [0, 0, 1, 0, 0, 0, 0, 0];  // User selected option 2
 const plaintext = encoder.encode(vector);
 
-// Cifrar con la clave pública
+// Encrypt with public key
 const ciphertext = encryptor.encrypt(plaintext);
 
-// Enviar al servidor
+// Send to server
 fetch('/api/submit-answers', {
     method: 'POST',
     body: JSON.stringify({encrypted_answers: [ciphertext.toJSON()]})
 });
 ```
 
-### 3. Acumulación Homomórfica (Backend)
+### 3. Homomorphic Accumulation (Backend)
 
 ```python
-# Primera respuesta: [0, 0, 1, 0, 0, 0, 0, 0] cifrada
+# First response: [0, 0, 1, 0, 0, 0, 0, 0] encrypted
 accumulated = ciphertext1
 
-# Segunda respuesta: [0, 1, 0, 0, 0, 0, 0, 0] cifrada
+# Second response: [0, 1, 0, 0, 0, 0, 0, 0] encrypted
 accumulated = evaluator.add(accumulated, ciphertext2)
 
-# Resultado cifrado: [0, 1, 1, 0, 0, 0, 0, 0] cifrado
-# ¡El servidor nunca ve los valores individuales!
+# Encrypted result: [0, 1, 1, 0, 0, 0, 0, 0] encrypted
+# The server never sees individual values!
 ```
 
-### 4. Descifrado (Backend, solo con clave secreta)
+### 4. Decryption (Backend, only with secret key)
 
 ```python
 plaintext = decryptor.decrypt(accumulated_ciphertext)
 results = encoder.decode(plaintext)
 # results = [0, 1, 1, 0, 0, 0, 0, 0]
-# Opción 1: 0 votos
-# Opción 2: 1 voto
-# Opción 3: 1 voto
+# Option 1: 0 votes
+# Option 2: 1 vote
+# Option 3: 1 vote
 ```
 
 ## 🛠️ API Endpoints
 
 ### `GET /api/questionnaire/<link>`
 
-Obtiene un cuestionario con su clave pública.
+Get a questionnaire with its public key.
 
 **Response:**
 ```json
@@ -226,7 +254,7 @@ Obtiene un cuestionario con su clave pública.
 
 ### `POST /api/submit-answers`
 
-Envía respuestas cifradas.
+Submit encrypted responses.
 
 **Request:**
 ```json
@@ -252,7 +280,7 @@ Envía respuestas cifradas.
 
 ### `GET /api/questionnaire/<link>/stats`
 
-Obtiene estadísticas básicas (sin descifrar).
+Get basic statistics (without decrypting).
 
 **Response:**
 ```json
@@ -264,100 +292,111 @@ Obtiene estadísticas básicas (sin descifrar).
 }
 ```
 
-## 🔧 Personalización
+## 🔧 Customization
 
-### Crear un Cuestionario Personalizado
+### Create a Custom Questionnaire
 
-Edita `create_questionnaire.py`:
+Edit `create_questionnaire.py`:
 
 ```python
 questions = [
     {
-        'text': '¿Tu pregunta aquí?',
-        'options': ['Opción 1', 'Opción 2', 'Opción 3', 'Opción 4', 
-                   'Opción 5', 'Opción 6', 'Opción 7', 'Opción 8']
+        'text': 'Your question here?',
+        'options': ['Option 1', 'Option 2', 'Option 3', 'Option 4', 
+                   'Option 5', 'Option 6', 'Option 7', 'Option 8']
     },
-    # ... más preguntas
+    # ... more questions
 ]
 
-create_questionnaire(questions, deadline_days=30, link='mi-cuestionario')
+create_questionnaire(questions, deadline_days=30, link='my-questionnaire')
 ```
 
-**Importante**: El número de opciones debe ser igual al `poly_degree` (por defecto 8).
+**Important**: The number of options must equal `poly_degree` (default 8).
 
-### Ajustar Parámetros de Seguridad
+### Adjust Security Parameters
 
-En `create_questionnaire.py`:
+In `create_questionnaire.py`:
 
 ```python
-degree = 16           # Mayor = más seguro pero más lento
-plain_modulus = 257   # Debe ser primo
-ciph_modulus = 2**60  # Mucho mayor para seguridad
+degree = 16           # Higher = more secure but slower
+plain_modulus = 257   # Must be prime
+ciph_modulus = 2**60  # Much larger for security
 ```
 
-## 📊 Visualización de Resultados
+## 📊 Results Visualization
 
-### Interfaz Web (Recomendado)
+### Web Interface (Recommended)
 
-Accede a los resultados con gráficos interactivos:
+Access results with interactive charts via the web application at:
 
 ```
-http://localhost:5000/results.html?id=<link-del-cuestionario>
+https://localhost:5000
 ```
 
-**Características:**
-- 📊 Gráficos interactivos (barras, circular, dona)
-- 📋 Vista de tabla con porcentajes detallados
-- 📄 Exportar resultados a CSV
-- 🖨️ Imprimir resultados
-- 📱 Diseño responsive
+Navigate to the "Results" page and select your questionnaire.
 
-**Tipos de visualización:**
-1. **Gráfico de Barras**: Distribución clara de votos
-2. **Gráfico Circular**: Proporciones visuales
-3. **Gráfico de Dona**: Vista moderna de proporciones
-4. **Tabla**: Datos precisos con barras de progreso
+**Features:**
+- 📊 Interactive charts (bar, pie, donut)
+- 📋 Table view with detailed percentages
+- 📄 Export results to CSV
+- 🖨️ Print results
+- 📱 Responsive design
 
-### Línea de Comandos
+**Visualization types:**
+1. **Bar Chart**: Clear vote distribution
+2. **Pie Chart**: Visual proportions
+3. **Donut Chart**: Modern proportion view
+4. **Table**: Precise data with progress bars
 
-Alternativa para terminal:
+### Command Line
+
+Terminal alternative:
 
 ```powershell
-python view_results.py --link <link-del-cuestionario>
+python view_results.py --link <questionnaire-link>
 ```
 
-Muestra resultados en formato texto con barras ASCII.
+Displays results in text format with ASCII bars.
 
-## 📝 Notas de Seguridad
+## 📝 Security Notes
 
-1. **Clave Secreta**: Mantén `secret_key` segura. Quien la tenga puede descifrar todas las respuestas.
+1. **Secret Key**: Keep `secret_key` secure. Anyone with it can decrypt all responses.
 
-2. **Tamaño de Parámetros**: Los parámetros actuales (`degree=8`) son para demostración. Para producción, usa `degree >= 2048`.
+2. **Parameter Size**: Current parameters (`degree=8`) are for demonstration. For production, use `degree >= 2048`.
 
-3. **HTTPS**: En producción, usa HTTPS para proteger la transmisión de claves públicas.
+3. **HTTPS & mTLS**: The system uses HTTPS with mutual TLS authentication. Client certificates prevent duplicate submissions.
 
-4. **Base de Datos**: En producción, usa PostgreSQL o MySQL en lugar de SQLite.
+4. **Database**: For production, use PostgreSQL or MySQL instead of SQLite.
+
+5. **Certificate Management**: Properly secure the CA private key and manage certificate revocation.
 
 ## 🐛 Troubleshooting
 
+### Error: "Certificate required" or "SSL handshake failed"
+
+Make sure you've installed the CA certificate (`ca.crt`) and a client certificate (`Alice.p12`, `Bob.p12`, or `Trudy.p12`) in your browser.
 
 ### Error: "Questionnaire not found"
 
-Verifica que el link es correcto:
+Verify the link is correct:
 ```powershell
 python view_results.py --list
 ```
 
-### Frontend no carga
+### Frontend doesn't load
 
-Verifica que el servidor Flask está corriendo y que los archivos JS están en `Frontend/`.
+Verify that:
+1. The Flask server is running (`python app.py`)
+2. The frontend is built (`npm run build` in Frontend/)
+3. You're accessing via HTTPS: `https://localhost:5000`
 
-## 📚 Referencias
+## 📚 References
 
 - [BFV Scheme Paper](https://eprint.iacr.org/2012/144.pdf)
 - [py-fhe Library](https://github.com/sarojaerabelli/py-fhe)
 - [Homomorphic Encryption](https://en.wikipedia.org/wiki/Homomorphic_encryption)
+- [Mutual TLS (mTLS)](https://en.wikipedia.org/wiki/Mutual_authentication)
 
-## 📄 Licencia
+## 📄 License
 
-Este proyecto es para uso educativo.
+This project is for educational use.
